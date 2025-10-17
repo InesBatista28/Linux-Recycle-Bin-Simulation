@@ -3,7 +3,7 @@
 #################################################
 # Script Header Comment
 # Author: Inês Batista, Maria Quinteiro
-# Date: 2025-10-16
+# Date: 2025-10-17
 # Description: Linux Recycle Bin Simulator
 # Version: 1.0
 #################################################
@@ -111,6 +111,24 @@ bytes_available() {
 
 
 #################################################
+# Function: transform_size
+# Description: Converte tamanho em bytes para formato legível (B, KB, MB, GB)
+# Parameters: $1 - tamanho em bytes
+# Returns: tamanho formatado
+#################################################
+transform_size() {
+  local bytes="$1"
+  local units=("B" "KB" "MB" "GB" "TB")
+  local i=0
+  while ((bytes >= 1024 && i < 4)); do
+    bytes=$((bytes/1024))
+    ((i++))
+  done
+  echo "${bytes}${units[$i]}"
+}
+
+
+#################################################
 # Function: delete_file
 # Description: Move ficheiros ou diretórios para a "Recycle Bin", 
 #              guardando metadata (nome original, caminho, data de eliminação, 
@@ -212,78 +230,142 @@ delete_file() {
 
 
 
-#teste main muito simples do chat só para testar o delete_files
-main() {
-  echo -e "${YELLOW}A inicializar o sistema de reciclagem...${NC}"
+
+#################################################
+# Function: list_recycled
+# Description: Lista o conteúdo atual do Recycle Bin em formato de tabela, suporta duas opções. Calcula também o total de itens e o espaço total utilizado.
+# Parameters: $1 - "--detailed" para ativar o modo detalhado
+# Returns: 0 em sucesso, 0 também se a reciclagem estiver vazia.
+#################################################
+list_recylced() {
   initialize_recyclebin
 
-  echo -e "${YELLOW}Iniciando testes de erro...${NC}"
+  # verificar se o ficheiro metabase, que contém os dados que queremos aceder, existe e não está vazio
+  if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 1 ]
+  then
+    echo -e "${YELLOW}O Recycle Bin está vazio.${NC}"
+    return 0
+  fi
 
-  #########################
-  # 1️⃣ Nenhum argumento
-  echo -e "${YELLOW}Teste 1: Nenhum argumento${NC}"
-  delete_file
+  # verifica se o utilizador pretende o detailed mode 
+  local detailed=false
+  if [ "$1" == "--detailed" ]
+  then
+    detailed=true
+  fi
 
-  #########################
-  # 2️⃣ Ficheiro inexistente
-  echo -e "${YELLOW}Teste 2: Ficheiro inexistente${NC}"
-  delete_file ficheiro_inexistente.txt
 
-  #########################
-  # 3️⃣ Sem permissões
-  echo -e "${YELLOW}Teste 3: Sem permissões${NC}"
+  local total_items
+  local total_size
+
+  total_items=$(($(wc -l < "$METADATA_FILE") - 1))  # subtrair o cabeçalho da contagem
+  # define a vírgula como separador, ignora o cabeçalho, adiciona o valor da quinta coluna a sum, e imprime a soma total
+  total_size=$(awk -F',' 'NR>1 {sum+=$5} END {print sum}' "$METADATA_FILE")
+
+  echo -e "${YELLOW}Conteúdo da Reciclagem: ${NC}"
+  # NORMAL MODE
+  if [ "$detailed" = false ]
+  then
+    printf "${GREEN}%-35s | %-25s | %-20s | %-10s${NC}\n" "ID" "Original filename" "Deletion date and time" "File size"
+
+
+    # ler o ficheiro metabase ignorando o cabeçalho
+    tail -n +2 "$METADATA_FILE" | while read line; do
+      # Separar os campos com cut
+      id=$(echo "$line" | cut -d',' -f1)
+      original_name=$(echo "$line" | cut -d',' -f2)
+      deletion_date=$(echo "$line" | cut -d',' -f4)
+      size=$(echo "$line" | cut -d',' -f5)
+
+      #converter para tamanho real
+      readable_size=$(transform_size "$size")
+      printf "%-35s | %-25s | %-20s | %-10s\n" "$id" "$original_name" "$deletion_date" "$readable_size"
+    done 
+
+  # DETAILED MODE
+  else
+    tail -n +2 "$METADATA_FILE" | while read line
+    do
+
+      id=$(echo "$line" | cut -d',' -f1)
+      original_name=$(echo "$line" | cut -d',' -f2)
+      original_path=$(echo "$line" | cut -d',' -f3)
+      deletion_date=$(echo "$line" | cut -d',' -f4)
+      size=$(echo "$line" | cut -d',' -f5)
+      type=$(echo "$line" | cut -d',' -f6)
+      permissions=$(echo "$line" | cut -d',' -f7)
+      owner=$(echo "$line" | cut -d',' -f8)
+
+      readable_size=$(transform_size "$size")
+      echo -e "${GREEN}ID:${NC}               $id"
+      echo -e "${GREEN}Nome original:${NC}   $original_name"
+      echo -e "${GREEN}Caminho original:${NC} $original_path"
+      echo -e "${GREEN}Data eliminação:${NC}  $deletion_date"
+      echo -e "${GREEN}Tamanho:${NC}          $readable_size"
+      echo -e "${GREEN}Tipo:${NC}             $type"
+      echo -e "${GREEN}Permissões:${NC}       $permissions"
+      echo -e "${GREEN}Dono:${NC}             $owner"
+      echo
+    done
+  fi
+
+  readable_total=$(transform_size "$total_size")
+  echo "Total de itens: $total_items"
+  echo "Espaço total utilizado: $readable_total"
+
+}
+
+
+
+main() {
+  echo -e "${YELLOW}=== Inicializando o Recycle Bin ===${NC}"
+  initialize_recyclebin
+
+  echo -e "${YELLOW}=== Criando ficheiros e diretórios de teste ===${NC}"
+  # Criar ficheiros de teste
+  echo "Conteúdo do ficheiro 1" > teste1.txt
+  echo "Conteúdo do ficheiro 2" > teste2.txt
+
+  # Criar diretório com subdiretórios
+  mkdir -p dir_teste/subdir
+  echo "Arquivo dentro do diretório" > dir_teste/arquivo1.txt
+  echo "Outro arquivo" > dir_teste/subdir/arquivo2.txt
+
+  # Criar ficheiro sem permissões
   touch sem_permissao.txt
   chmod 000 sem_permissao.txt
+
+  echo -e "${YELLOW}=== Testando delete_file ===${NC}"
+  
+  # 1️⃣ Tentativa de apagar ficheiro inexistente
+  delete_file arquivo_inexistente.txt
+
+  # 2️⃣ Tentativa de apagar ficheiro sem permissões
   delete_file sem_permissao.txt
+
+  # Restaurar permissões e apagar ficheiro de teste
   chmod 644 sem_permissao.txt
   rm sem_permissao.txt
 
-  #########################
-  # 4️⃣ Apagar o próprio Recycle Bin
-  echo -e "${YELLOW}Teste 4: Apagar o próprio Recycle Bin${NC}"
-  delete_file "$RECYCLE_BIN_DIR"
+  # 3️⃣ Apagar ficheiros válidos
+  delete_file teste1.txt teste2.txt
 
-  #########################
-  # 5️⃣ Espaço insuficiente (simulado)
-  echo -e "${YELLOW}Teste 5: Espaço insuficiente (simulado)${NC}"
-  large_file="arquivo_grande.txt"
-  echo "12345" > "$large_file"
-  # Monkey patch bytes_available para retornar 0 bytes
-  bytes_available_original=$(declare -f bytes_available)
-  bytes_available() { echo 0; }
-  delete_file "$large_file"
-  rm "$large_file"
-  eval "$bytes_available_original"
+  # 4️⃣ Apagar diretório recursivo
+  delete_file dir_teste
 
-  #########################
-  # 6️⃣ Ficheiro válido
-  echo -e "${YELLOW}Teste 6: Ficheiro válido${NC}"
-  echo "Ficheiro normal" > ficheiro_valido.txt
-  delete_file ficheiro_valido.txt
+  echo -e "${YELLOW}=== Conteúdo do Recycle Bin (modo normal) ===${NC}"
+  list_recylced
 
-  #########################
-  # 7️⃣ Diretório com ficheiros (teste recursivo)
-  echo -e "${YELLOW}Teste 7: Diretório recursivo${NC}"
-  mkdir -p pasta_teste/subpasta
-  echo "Ficheiro dentro da pasta" > pasta_teste/ficheiro1.txt
-  echo "Outro ficheiro dentro da subpasta" > pasta_teste/subpasta/ficheiro2.txt
-  delete_file pasta_teste
+  echo -e "${YELLOW}=== Conteúdo do Recycle Bin (modo detalhado) ===${NC}"
+  list_recylced --detailed
 
-  echo -e "${GREEN}Testes de erro e sucesso concluídos.${NC}"
-
-  # Visualização rápida
-  echo -e "${YELLOW}Conteúdo atual da pasta de reciclagem:${NC}"
-  ls -l "$FILES_DIR"
-
-  echo -e "${YELLOW}Primeiras linhas do metadata.db:${NC}"
-  head -n 5 "$METADATA_FILE"
-
-  echo -e "${YELLOW}Últimas linhas do log:${NC}"
+  echo -e "${YELLOW}=== Logs recentes ===${NC}"
   tail -n 20 "$LOG_FILE"
+
+  echo -e "${YELLOW}=== Metadados recentes ===${NC}"
+  tail -n 10 "$METADATA_FILE"
 }
 
+# Executar main
 main "$@"
-
-
-
 
