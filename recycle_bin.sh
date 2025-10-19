@@ -9,11 +9,11 @@
 #################################################
 
 
-RECYCLE_BIN_DIR="$HOME/.recycle_bin"     # Diretório principal da reciclagem
-FILES_DIR="$RECYCLE_BIN_DIR/files"    # Subdiretório que vai armazenar os ficheiros que forem apagados
-METADATA_FILE="$RECYCLE_BIN_DIR/metadata.db"    # Base de dados que guardará informação sobre os ficheiros apagados
-CONFIG_FILE="$RECYCLE_BIN_DIR/config"     # Ficheiro de configuração do sistema de reciclagem
-LOG_FILE="$RECYCLE_BIN_DIR/recyclebin.log"    # Ficheiro de log para registar todas as operações realizadas
+RECYCLE_BIN_DIR="$HOME/.recycle_bin"     # Main recycle bin directory
+FILES_DIR="$RECYCLE_BIN_DIR/files"       # Subdirectory to store deleted files
+METADATA_FILE="$RECYCLE_BIN_DIR/metadata.db"    # Database file to store information about deleted files
+CONFIG_FILE="$RECYCLE_BIN_DIR/config"     # Configuration file for the recycle system
+LOG_FILE="$RECYCLE_BIN_DIR/recyclebin.log"    # Log file to record all operations
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -23,8 +23,8 @@ NC='\033[0m'
 
 #################################################
 # Function: log_msg
-# Description: Função utilitária que será utilizada por outras de maneira a registar as operações que se realizarem no bin
-# Parameters: $1 - Nível (INFO, ERROR), $2 - Mensagem a registar
+# Description: Utility function used by others to log operations performed in the recycle bin
+# Parameters: $1 - Level (INFO, ERROR), $2 - Message to log
 # Returns: 0
 #################################################
 log_msg() {
@@ -38,54 +38,54 @@ log_msg() {
 
 #################################################
 # Function: initialize_recyclebin
-# Description: Cria a estrutura inicial da reciclagem e ficheiros necessários, caso os mesmos ainda não existam
-# Parameters: Nenhum
-# Returns: 0 caso sucesso, 1 caso erro
+# Description: Creates the initial recycle bin structure and required files, if they do not exist
+# Parameters: None
+# Returns: 0 if success, 1 if error
 #################################################
 initialize_recyclebin() {
-  # Criar diretório principal se não existir
+  # Create main directory if it doesn't exist
   if [ ! -d "$RECYCLE_BIN_DIR" ]
   then
     mkdir "$RECYCLE_BIN_DIR"
-    echo "Diretório $RECYCLE_BIN_DIR criado."
+    echo "Directory $RECYCLE_BIN_DIR created."
   fi
 
-  # Criar subdiretório files se não existir
+  # Create subdirectory 'files' if it doesn't exist
   if [ ! -d "$FILES_DIR" ]
   then
     mkdir "$FILES_DIR"
-    echo "Subdiretório $FILES_DIR criado."
+    echo "Subdirectory $FILES_DIR created."
   fi
 
-  # Criar metadata.db com cabeçalho se não existir
+  # Create metadata.db with header if it doesn't exist
   if [ ! -f "$METADATA_FILE" ]
   then
     echo "ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER" > "$METADATA_FILE"
-    echo "Ficheiro metadata.db inicializado."
+    echo "metadata.db file initialized."
   fi
 
-  # Criar ficheiro config com valores padrão se não existir
+  # Create config file with default values if it doesn't exist
   if [ ! -f "$CONFIG_FILE" ]
   then
     echo "MAX_SIZE_MB=1024" > "$CONFIG_FILE"
     echo "RETENTION_DAYS=30" >> "$CONFIG_FILE"
-    echo "Ficheiro config criado com valores padrão."
+    echo "Config file created with default values."
   fi
 
-  # Criar ficheiro de log vazio se não existir
+  # Create empty log file if it doesn't exist
   if [ ! -f "$LOG_FILE" ]
   then
     touch "$LOG_FILE"
-    echo "Ficheiro de log criado."
+    echo "Log file created."
   fi
 }
 
 
 #################################################
 # Function: generate_id
-# Description: Gera um ID único baseado em timestamp + Process ID(Identificador), que será o nome dos ficheiros eliminados dentro da pasta files
-# Parameters: Nenhum
-# Returns: ID gerados
+# Description: Generates a unique ID based on timestamp + process ID, used as the filename for deleted items in the files folder
+# Parameters: None
+# Returns: Generated ID
 #################################################
 generate_id() {
   echo "$(date +%s%N)_$$"
@@ -95,14 +95,14 @@ generate_id() {
 
 #################################################
 # Function: bytes_available
-# Description: Retorna o espaço livre em bytes na partição do Recycle Bin
-# Parameters: Nenhum
-# Returns: número de bytes disponíveis
+# Description: Returns available space in bytes on the recycle bin partition
+# Parameters: None
+# Returns: Number of available bytes
 #################################################
 bytes_available() {
   local avail
   avail=$(df --output=avail "$RECYCLE_BIN_DIR" 2>/dev/null | tail -1)
-  # fallback caso esteja vazio
+  # Fallback in case it's empty
   if [ -z "$avail" ]; then
     avail=0
   fi
@@ -112,9 +112,9 @@ bytes_available() {
 
 #################################################
 # Function: transform_size
-# Description: Converte tamanho em bytes para formato legível (B, KB, MB, GB)
-# Parameters: $1 - tamanho em bytes
-# Returns: tamanho formatado
+# Description: Converts size in bytes to a human-readable format (B, KB, MB, GB)
+# Parameters: $1 - size in bytes
+# Returns: formatted size
 #################################################
 transform_size() {
   local bytes="$1"
@@ -130,50 +130,50 @@ transform_size() {
 
 #################################################
 # Function: delete_file
-# Description: Move ficheiros ou diretórios para a "Recycle Bin", 
-#              guardando metadata (nome original, caminho, data de eliminação, 
-#              tamanho, tipo, permissões e dono) e registando todas as operações
-#              no log. Suporta múltiplos argumentos, verificação de permissões,
-#              espaço disponível e não permite apagar o próprio Recycle Bin.
-#              Diretórios são apagados recursivamente.
-# Parameters: $@ - lista de ficheiros/diretórios a eliminar
-# Returns: 0 se pelo menos um item foi movido com sucesso, 1 se ocorreu um erro em todos os itens ou argumentos inválidos
+# Description: Moves files or directories to the "Recycle Bin",
+#              saving metadata (original name, path, deletion date,
+#              size, type, permissions, and owner) and logging all operations.
+#              Supports multiple arguments, permission checking,
+#              available space validation, and prevents deleting the Recycle Bin itself.
+#              Directories are deleted recursively.
+# Parameters: $@ - list of files/directories to delete
+# Returns: 0 if at least one item was successfully moved, 1 if all failed or invalid args
 #################################################
 delete_file() {
   initialize_recyclebin
 
-  # validar se foram passados argumentos
+  # Check if arguments were provided
   if [ $# -eq 0 ]
   then  
-    echo -e "${RED}ERRO: Nenhum ficheiro/diretoria especificado.${NC}"
-    log_msg "ERROR" "Tentativa de apagar sem argumentos passados"
+    echo -e "${RED}ERROR: No file/directory specified.${NC}"
+    log_msg "ERROR" "Attempt to delete with no arguments provided"
     return 1
   fi
 
 
   for item in "$@"
   do
-    # validar existência do argumento passado
+    # Check if item exists
     if [ ! -e "$item" ]
     then
-      echo -e "${RED}ERRO: '$item' não existe.${NC}"
-      log_msg "ERROR" "Tentativa de apagar item não existente: $item"
+      echo -e "${RED}ERROR: '$item' does not exist.${NC}"
+      log_msg "ERROR" "Attempt to delete non-existent item: $item"
       continue 
     fi
 
-    # tentativa de eliminar o recycle bin
+    # Prevent deletion of the recycle bin itself
     if [[ "$item" == "$RECYCLE_BIN_DIR"* ]]
     then
-      echo -e "${RED}ERRO: Não é possível eliminar o próprio Recycle Bin.${NC}"
-      log_msg "ERROR" "Tentativa de eliminar o Recycle Bin: $item"
+      echo -e "${RED}ERROR: Cannot delete the Recycle Bin itself.${NC}"
+      log_msg "ERROR" "Attempt to delete the Recycle Bin: $item"
       continue
     fi
 
-    #  verificar as permissões para apagar argumentos
+    # Check delete permissions
     if [ ! -r "$item" ] || [ ! -w "$item" ]
     then  
-      echo -e "${RED}ERRO: Sem permissão para eliminar '$item'.${NC}"
-      log_msg "ERROR" "Sem permissão para eliminar $item"
+      echo -e "${RED}ERROR: No permission to delete '$item'.${NC}"
+      log_msg "ERROR" "No permission to delete $item"
       continue
     fi
 
@@ -181,7 +181,7 @@ delete_file() {
     id=$(generate_id)
 
 
-    # determinar tipo e tamanho do argumento passado para saber se cabe no bin
+    # Determine type and size of the item to check if it fits in the bin
     if [ -d "$item" ]
     then
       type="directory"
@@ -191,18 +191,18 @@ delete_file() {
       size=$(stat -c %s "$item")
     fi
 
-    # verificar espaço disponível no bin
+    # Check available space
     available=$(bytes_available)
     available=${available:-0}  
     if [ "$available" -lt "$size" ]; then
-      echo -e "${RED}ERRO: Não há espaço suficiente para mover '$item'.${NC}"
-      log_msg "ERROR" "Espaço insuficiente para $item, com $size bytes."
+      echo -e "${RED}ERROR: Not enough space to move '$item'.${NC}"
+      log_msg "ERROR" "Insufficient space for $item, size $size bytes."
       continue
     fi
 
 
 
-    # dados que serão guardados no metabase.db
+    # Data to store in metadata.db
     original_name=$(basename "$item")
     original_path=$(realpath "$item")
     deletion_date=$(date +"%Y-%m-%d %H:%M:%S")
@@ -210,18 +210,18 @@ delete_file() {
     owner=$(stat -c %U:%G "$item")
     echo "$id,$original_name,$original_path,$deletion_date,$size,$type,$permissions,$owner" >> "$METADATA_FILE"
 
-    # mover ficheiros de diretório
+    # Move file or directory
     mv "$item" "$FILES_DIR/$id" 2>/dev/null
     if [ $? -ne 0 ]
     then
-      echo -e "${RED}ERRO: Falha ao mover '$item' para o Recycle Bin.${NC}"
-      log_msg "ERROR" "Falha ao mover $item para o Recycle Bin"
+      echo -e "${RED}ERROR: Failed to move '$item' to Recycle Bin.${NC}"
+      log_msg "ERROR" "Failed to move $item to Recycle Bin"
       continue
     fi
 
-    # sucesso no movimento de diretórios
-    echo -e "${GREEN} '$original_name' movido para o Recycle Bin.${NC}"
-    log_msg "INFO" "'$original_name' movido para o Recycle Bin com o ID $id"
+    # Successful move
+    echo -e "${GREEN} '$original_name' moved to Recycle Bin.${NC}"
+    log_msg "INFO" "'$original_name' moved to Recycle Bin with ID $id"
   done
 
   return 0
@@ -233,21 +233,22 @@ delete_file() {
 
 #################################################
 # Function: list_recycled
-# Description: Lista o conteúdo atual do Recycle Bin em formato de tabela, suporta duas opções. Calcula também o total de itens e o espaço total utilizado.
-# Parameters: $1 - "--detailed" para ativar o modo detalhado
-# Returns: 0 em sucesso, 0 também se a reciclagem estiver vazia.
+# Description: Lists the current Recycle Bin contents in a table format.
+#              Supports a detailed mode. Also calculates total items and total used space.
+# Parameters: $1 - "--detailed" to enable detailed mode
+# Returns: 0 on success, also 0 if the bin is empty
 #################################################
-list_recylced() {
+list_recycled() {
   initialize_recyclebin
 
-  # verificar se o ficheiro metabase, que contém os dados que queremos aceder, existe e não está vazio
+  # Check if metadata file exists and is not empty
   if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 1 ]
   then
-    echo -e "${YELLOW}O Recycle Bin está vazio.${NC}"
+    echo -e "${YELLOW}Recycle Bin is empty.${NC}"
     return 0
   fi
 
-  # verifica se o utilizador pretende o detailed mode 
+  # Check if detailed mode is requested
   local detailed=false
   if [ "$1" == "--detailed" ]
   then
@@ -258,26 +259,25 @@ list_recylced() {
   local total_items
   local total_size
 
-  total_items=$(($(wc -l < "$METADATA_FILE") - 1))  # subtrair o cabeçalho da contagem
-  # define a vírgula como separador, ignora o cabeçalho, adiciona o valor da quinta coluna a sum, e imprime a soma total
+  total_items=$(($(wc -l < "$METADATA_FILE") - 1))  # subtract header
+  # Set comma as delimiter, ignore header, sum fifth column, and print total
   total_size=$(awk -F',' 'NR>1 {sum+=$5} END {print sum}' "$METADATA_FILE")
 
-  echo -e "${YELLOW}Conteúdo da Reciclagem: ${NC}"
+  echo -e "${YELLOW}Recycle Bin Contents: ${NC}"
   # NORMAL MODE
   if [ "$detailed" = false ]
   then
     printf "${GREEN}%-35s | %-25s | %-20s | %-10s${NC}\n" "ID" "Original filename" "Deletion date and time" "File size"
 
 
-    # ler o ficheiro metabase ignorando o cabeçalho
+    # Read metadata file ignoring header
     tail -n +2 "$METADATA_FILE" | while read line; do
-      # Separar os campos com cut
       id=$(echo "$line" | cut -d',' -f1)
       original_name=$(echo "$line" | cut -d',' -f2)
       deletion_date=$(echo "$line" | cut -d',' -f4)
       size=$(echo "$line" | cut -d',' -f5)
 
-      #converter para tamanho real
+      # Convert to readable size
       readable_size=$(transform_size "$size")
       printf "%-35s | %-25s | %-20s | %-10s\n" "$id" "$original_name" "$deletion_date" "$readable_size"
     done 
@@ -298,74 +298,73 @@ list_recylced() {
 
       readable_size=$(transform_size "$size")
       echo -e "${GREEN}ID:${NC}               $id"
-      echo -e "${GREEN}Nome original:${NC}   $original_name"
-      echo -e "${GREEN}Caminho original:${NC} $original_path"
-      echo -e "${GREEN}Data eliminação:${NC}  $deletion_date"
-      echo -e "${GREEN}Tamanho:${NC}          $readable_size"
-      echo -e "${GREEN}Tipo:${NC}             $type"
-      echo -e "${GREEN}Permissões:${NC}       $permissions"
-      echo -e "${GREEN}Dono:${NC}             $owner"
+      echo -e "${GREEN}Original name:${NC}   $original_name"
+      echo -e "${GREEN}Original path:${NC}   $original_path"
+      echo -e "${GREEN}Deletion date:${NC}   $deletion_date"
+      echo -e "${GREEN}Size:${NC}            $readable_size"
+      echo -e "${GREEN}Type:${NC}            $type"
+      echo -e "${GREEN}Permissions:${NC}     $permissions"
+      echo -e "${GREEN}Owner:${NC}           $owner"
       echo
     done
   fi
 
   readable_total=$(transform_size "$total_size")
-  echo "Total de itens: $total_items"
-  echo "Espaço total utilizado: $readable_total"
+  echo "Total items: $total_items"
+  echo "Total space used: $readable_total"
 
 }
 
 
 
 main() {
-  echo -e "${YELLOW}=== Inicializando o Recycle Bin ===${NC}"
+  echo -e "${YELLOW}=== Initializing Recycle Bin ===${NC}"
   initialize_recyclebin
 
-  echo -e "${YELLOW}=== Criando ficheiros e diretórios de teste ===${NC}"
-  # Criar ficheiros de teste
-  echo "Conteúdo do ficheiro 1" > teste1.txt
-  echo "Conteúdo do ficheiro 2" > teste2.txt
+  echo -e "${YELLOW}=== Creating test files and directories ===${NC}"
+  # Create test files
+  echo "File 1 content" > teste1.txt
+  echo "File 2 content" > teste2.txt
 
-  # Criar diretório com subdiretórios
+  # Create test directory with subdirectory
   mkdir -p dir_teste/subdir
-  echo "Arquivo dentro do diretório" > dir_teste/arquivo1.txt
-  echo "Outro arquivo" > dir_teste/subdir/arquivo2.txt
+  echo "File inside directory" > dir_teste/arquivo1.txt
+  echo "Another file" > dir_teste/subdir/arquivo2.txt
 
-  # Criar ficheiro sem permissões
+  # Create file without permissions
   touch sem_permissao.txt
   chmod 000 sem_permissao.txt
 
-  echo -e "${YELLOW}=== Testando delete_file ===${NC}"
+  echo -e "${YELLOW}=== Testing delete_file ===${NC}"
   
-  # 1️⃣ Tentativa de apagar ficheiro inexistente
+  # 1️⃣ Attempt to delete non-existent file
   delete_file arquivo_inexistente.txt
 
-  # 2️⃣ Tentativa de apagar ficheiro sem permissões
+  # 2️⃣ Attempt to delete file without permissions
   delete_file sem_permissao.txt
 
-  # Restaurar permissões e apagar ficheiro de teste
+  # Restore permissions and delete test file
   chmod 644 sem_permissao.txt
   rm sem_permissao.txt
 
-  # 3️⃣ Apagar ficheiros válidos
+  # 3️⃣ Delete valid files
   delete_file teste1.txt teste2.txt
 
-  # 4️⃣ Apagar diretório recursivo
+  # 4️⃣ Delete recursive directory
   delete_file dir_teste
 
-  echo -e "${YELLOW}=== Conteúdo do Recycle Bin (modo normal) ===${NC}"
+  echo -e "${YELLOW}=== Recycle Bin contents (normal mode) ===${NC}"
   list_recylced
 
-  echo -e "${YELLOW}=== Conteúdo do Recycle Bin (modo detalhado) ===${NC}"
+  echo -e "${YELLOW}=== Recycle Bin contents (detailed mode) ===${NC}"
   list_recylced --detailed
 
-  echo -e "${YELLOW}=== Logs recentes ===${NC}"
+  echo -e "${YELLOW}=== Recent logs ===${NC}"
   tail -n 20 "$LOG_FILE"
 
-  echo -e "${YELLOW}=== Metadados recentes ===${NC}"
+  echo -e "${YELLOW}=== Recent metadata ===${NC}"
   tail -n 10 "$METADATA_FILE"
 }
 
-# Executar main
+# Run main
 main "$@"
-
