@@ -46,14 +46,14 @@ initialize_recyclebin() {
   # Create main directory if it doesn't exist
   if [ ! -d "$RECYCLE_BIN_DIR" ]
   then
-    mkdir "$RECYCLE_BIN_DIR"
+    mkdir -p "$RECYCLE_BIN_DIR"
     echo "Directory $RECYCLE_BIN_DIR created."
   fi
 
   # Create subdirectory 'files' if it doesn't exist
   if [ ! -d "$FILES_DIR" ]
   then
-    mkdir "$FILES_DIR"
+    mkdir -p "$FILES_DIR"
     echo "Subdirectory $FILES_DIR created."
   fi
 
@@ -101,7 +101,7 @@ generate_id() {
 #################################################
 bytes_available() {
   local avail
-  avail=$(df --output=avail "$RECYCLE_BIN_DIR" 2>/dev/null | tail -1)
+  avail=$(($(df --output=avail "$RECYCLE_BIN_DIR" 2>/dev/null | tail -1) * 1024))
   # Fallback in case it's empty
   if [ -z "$avail" ]; then
     avail=0
@@ -317,54 +317,293 @@ list_recycled() {
 
 
 
-main() {
-  echo -e "${YELLOW}=== Initializing Recycle Bin ===${NC}"
+#################################################
+# Function: restore_file
+# Description: Restores a file or directory from the Recycle Bin to its original location. 
+#              Accepts either the file ID or the original filename as parameter.
+#              Handles naming conflicts, directory recreation, permission restoration, metadata cleanup, and logs all operations.
+# Parameters: $1 - File ID or original filename
+# Returns: 0 if restored successfully, 1 otherwise
+#################################################
+restore_file() {
   initialize_recyclebin
 
-  echo -e "${YELLOW}=== Creating test files and directories ===${NC}"
-  # Create test files
-  echo "File 1 content" > teste1.txt
-  echo "File 2 content" > teste2.txt
+  local query="$1"
 
-  # Create test directory with subdirectory
+  # validate de id input 
+  if [ -z "$query" ]
+  then
+    echo -e "${RED}ERROR: No ID or name specified.${NC}"
+    log_msg "ERROR" "Attempt to restore without specifying ID or name"
+    return 1
+  fi
+
+  # locate the entry in the metadata (search by id or filename)
+  local line
+  line=$(awk -F',' -v q="$query" 'NR>1 && ($1==q || $2==q) {print; exit}' "$METADATA_FILE")
+
+  # cases where no metabase is found by the id/filename given
+  if [ -z "$line" ]
+  then
+    echo -e "${RED}ERROR: No matching entry found for '$query'.${NC}"
+    log_msg "ERROR" "Restore failed: no matching entry for '$query'"
+    return 1
+  fi
+
+
+  
+  # extract metadata fields 
+  local id original_name original_path size type permissions owner
+  id=$(echo "$line" | cut -d',' -f1)
+  original_name=$(echo "$line" | cut -d',' -f2)
+  original_path=$(echo "$line" | cut -d',' -f3)
+  size=$(echo "$line" | cut -d',' -f5)
+  type=$(echo "$line" | cut -d',' -f6)
+  permissions=$(echo "$line" | cut -d',' -f7)
+  owner=$(echo "$line" | cut -d',' -f8)
+
+  # Path to the stored file inside the recycle bin
+  local stored_file="$FILES_DIR/$id"
+
+
+
+  # verify stored file exists 
+  if [ ! -e "$stored_file" ]
+  then
+    echo -e "${RED}ERROR: File '$id' missing from Recycle Bin storage.${NC}"
+    log_msg "ERROR" "Missing stored file for ID: $id"
+    return 1
+  fi
+
+  # check if destination directory exists
+  local dest_dir
+  dest_dir=$(dirname "$original_path")
+
+  if [ ! -d "$dest_dir" ]
+  then
+    echo -e "${YELLOW}Destination directory missing. Creating: $dest_dir${NC}"
+    mkdir -p "$dest_dir" 2>/dev/null
+    if [ $? -ne 0 ]
+    then
+      echo -e "${RED}ERROR: Failed to create directory '$dest_dir'.${NC}"
+      log_msg "ERROR" "Failed to create restore directory $dest_dir for $id"
+      return 1
+    fi
+  fi
+
+
+
+  # if file already exists at the destination
+  local final_path="$original_path"
+  if [ -e "$final_path" ]
+  then
+    echo -e "${YELLOW}Conflict: File already exists at destination: '$final_path'${NC}"
+    echo "Choose action:"
+    echo "  [O] Overwrite existing file"
+    echo "  [R] Restore with new name (append timestamp)"
+    echo "  [C] Cancel restoration"
+    read -rp "Your choice [O/R/C]: " choice
+
+    case "$choice" in
+      [Oo])
+        # User chose to overwrite existing file
+        echo "Overwriting existing file..."
+        ;;
+      [Rr])
+        # Append timestamp to new filename to avoid conflict
+        local ts
+        ts=$(date +%Y%m%d_%H%M%S)
+        final_path="${dest_dir}/${original_name}_restored_${ts}"
+        echo "Restoring as '$final_path'"
+        ;;
+      [Cc])
+        # User cancels operation
+        echo -e "${YELLOW}Restoration cancelled by user.${NC}"
+        log_msg "INFO" "Restoration of '$original_name' (ID $id) cancelled by user"
+        return 0
+        ;;
+      *)
+        # Invalid choice entered
+        echo -e "${RED}Invalid choice. Operation cancelled.${NC}"
+        return 1
+        ;;
+    esac
+  fi
+
+
+  # check avaliable disk space before restoring the file selected 
+  local available
+  available=$(bytes_available)
+  available=${available:-0}
+  if [ "$available" -lt "$size" ]
+  then
+    echo -e "${RED}ERROR: Not enough space to restore '$original_name'.${NC}"
+    log_msg "ERROR" "Insufficient space to restore $original_name (ID $id)"
+    return 1
+  fi
+
+  # move file from the recycle bin to back to its original location 
+  mv "$stored_file" "$final_path" 2>/dev/null
+  if [ $? -ne 0 ]; then
+    echo -e "${RED}ERROR: Failed to restore '$original_name' to '$final_path'.${NC}"
+    log_msg "ERROR" "Restore failed for $original_name (ID $id)"
+    return 1
+  fi
+
+  # restore permitions 
+  chmod "$permissions" "$final_path" 2>/dev/null
+  chown "$owner" "$final_path" 2>/dev/null
+
+  # remove restored metadata
+  grep -v "^$id," "$METADATA_FILE" > "${METADATA_FILE}.tmp" && mv "${METADATA_FILE}.tmp" "$METADATA_FILE"
+
+  # user feedback
+  echo -e "${GREEN}File '$original_name' restored successfully to '$final_path'.${NC}"
+  log_msg "INFO" "File '$original_name' (ID $id) restored to '$final_path'"
+
+  return 0
+}
+
+
+
+
+# MAIN COMPLETAMENTE CHAT SÓ PARA TESTAR
+main() {
+  echo -e "${YELLOW}=== [1/10] INITIALIZING RECYCLE BIN ===${NC}"
+  initialize_recyclebin
+
+  echo -e "${YELLOW}=== [2/10] PREPARING TEST ENVIRONMENT ===${NC}"
+
+  # Limpar ambiente anterior
+  rm -rf teste1.txt teste2.txt dir_teste sem_permissao.txt 2>/dev/null
+
+  # Criar ficheiros de teste
+  echo "Conteúdo de teste 1" > teste1.txt
+  echo "Conteúdo de teste 2" > teste2.txt
+
+  # Criar diretório com subdiretórios e ficheiros
   mkdir -p dir_teste/subdir
-  echo "File inside directory" > dir_teste/arquivo1.txt
-  echo "Another file" > dir_teste/subdir/arquivo2.txt
+  echo "Ficheiro dentro do diretório" > dir_teste/f1.txt
+  echo "Outro ficheiro" > dir_teste/subdir/f2.txt
 
-  # Create file without permissions
+  # Criar ficheiro sem permissões
   touch sem_permissao.txt
   chmod 000 sem_permissao.txt
 
-  echo -e "${YELLOW}=== Testing delete_file ===${NC}"
-  
-  # 1️⃣ Attempt to delete non-existent file
-  delete_file arquivo_inexistente.txt
+  # Mostrar estrutura inicial
+  echo -e "${GREEN}Estrutura inicial criada:${NC}"
+  ls -l
+  echo
 
-  # 2️⃣ Attempt to delete file without permissions
+  #################################################
+  # 🧨 TESTES DE ERRO
+  #################################################
+  echo -e "${YELLOW}=== [3/10] TESTES DE ERRO ===${NC}"
+
+  # 1️⃣ Nenhum argumento fornecido
+  echo -e "${YELLOW}-- Teste: Nenhum argumento fornecido --${NC}"
+  delete_file
+
+  # 2️⃣ Ficheiro inexistente
+  echo -e "${YELLOW}-- Teste: Ficheiro inexistente --${NC}"
+  delete_file nao_existe.txt
+
+  # 3️⃣ Ficheiro sem permissões
+  echo -e "${YELLOW}-- Teste: Ficheiro sem permissões --${NC}"
   delete_file sem_permissao.txt
 
-  # Restore permissions and delete test file
+  # Corrigir permissões para testes seguintes
   chmod 644 sem_permissao.txt
   rm sem_permissao.txt
 
-  # 3️⃣ Delete valid files
+  # 4️⃣ Tentar apagar a própria reciclagem
+  echo -e "${YELLOW}-- Teste: Tentativa de apagar o Recycle Bin --${NC}"
+  delete_file "$RECYCLE_BIN_DIR"
+
+  #################################################
+  # ✅ TESTES DE SUCESSO - DELETE
+  #################################################
+  echo -e "${YELLOW}=== [4/10] TESTES DE SUCESSO: DELETE ===${NC}"
+
+  # 5️⃣ Apagar ficheiros simples
+  echo -e "${YELLOW}-- Teste: Apagar ficheiros válidos --${NC}"
   delete_file teste1.txt teste2.txt
 
-  # 4️⃣ Delete recursive directory
+  # 6️⃣ Apagar diretório recursivamente
+  echo -e "${YELLOW}-- Teste: Apagar diretório recursivamente --${NC}"
   delete_file dir_teste
 
-  echo -e "${YELLOW}=== Recycle Bin contents (normal mode) ===${NC}"
-  list_recylced
+  #################################################
+  # 📋 VERIFICAR CONTEÚDOS DA RECICLAGEM
+  #################################################
+  echo -e "${YELLOW}=== [5/10] LISTAGEM NORMAL ===${NC}"
+  list_recycled
 
-  echo -e "${YELLOW}=== Recycle Bin contents (detailed mode) ===${NC}"
-  list_recylced --detailed
+  echo -e "${YELLOW}=== [6/10] LISTAGEM DETALHADA ===${NC}"
+  list_recycled --detailed
 
-  echo -e "${YELLOW}=== Recent logs ===${NC}"
-  tail -n 20 "$LOG_FILE"
+  #################################################
+  # 🔁 TESTES DE RESTAURAÇÃO
+  #################################################
+  echo -e "${YELLOW}=== [7/10] TESTES DE RESTORE ===${NC}"
 
-  echo -e "${YELLOW}=== Recent metadata ===${NC}"
-  tail -n 10 "$METADATA_FILE"
+  # Obter ID de um dos ficheiros apagados
+  local id_teste
+  id_teste=$(awk -F',' 'NR==2 {print $1}' "$METADATA_FILE")
+
+  echo -e "${YELLOW}-- Teste: Restaurar por ID ($id_teste) --${NC}"
+  restore_file "$id_teste"
+
+  # Restaurar por nome
+  local nome_teste
+  nome_teste=$(awk -F',' 'NR==2 {print $2}' "$METADATA_FILE")
+
+  echo -e "${YELLOW}-- Teste: Restaurar por nome ($nome_teste) --${NC}"
+  restore_file "$nome_teste"
+
+  # Tentar restaurar item inexistente
+  echo -e "${YELLOW}-- Teste: Restaurar item inexistente --${NC}"
+  restore_file "nao_existe_123"
+
+  #################################################
+  # 💾 TESTE DE CONFLITO DE NOMES
+  #################################################
+  echo -e "${YELLOW}=== [8/10] TESTE DE CONFLITO ===${NC}"
+
+  # Criar novamente um ficheiro igual ao que foi apagado antes
+  echo "Novo ficheiro conflito" > teste1.txt
+  delete_file teste1.txt
+
+  # Restaurar o mesmo ficheiro (deve detetar conflito)
+  id_conf=$(awk -F',' 'NR>1 {print $1; exit}' "$METADATA_FILE")
+  echo -e "${YELLOW}-- Teste: Restaurar com conflito (ficheiro já existe) --${NC}"
+  echo "R" | restore_file "$id_conf"
+
+  #################################################
+  # 🧹 TESTE DE ESPAÇO INSUFICIENTE (simulado)
+  #################################################
+  echo -e "${YELLOW}=== [9/10] TESTE DE ESPAÇO INSUFICIENTE (simulação) ===${NC}"
+
+  # Simular sem espaço (forçar bytes_available a 0 temporariamente)
+  bytes_available() { echo 0; }
+  echo "Forçar falta de espaço: tentar apagar ficheiro de teste"
+  echo "Pequeno conteúdo" > pequeno.txt
+  delete_file pequeno.txt
+
+  #################################################
+  # 📜 VISUALIZAÇÃO FINAL DE LOGS E METADADOS
+  #################################################
+  echo -e "${YELLOW}=== [10/10] VERIFICAÇÃO FINAL ===${NC}"
+  echo -e "${GREEN}Últimos registos de log:${NC}"
+  tail -n 15 "$LOG_FILE"
+  echo
+  echo -e "${GREEN}Conteúdo atual do metadata.db:${NC}"
+  cat "$METADATA_FILE"
+  echo
+
+  echo -e "${GREEN}=== TESTES CONCLUÍDOS COM SUCESSO ===${NC}"
 }
 
-# Run main
+
+
 main "$@"
