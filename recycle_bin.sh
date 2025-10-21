@@ -267,7 +267,7 @@ list_recycled() {
   # NORMAL MODE
   if [ "$detailed" = false ]
   then
-    printf "${GREEN}%-35s | %-25s | %-20s | %-10s${NC}\n" "ID" "Original filename" "Deletion date and time" "File size"
+  printf "${GREEN}%-35s | %-25s | %-30s | %-12s${NC}\n" "ID" "Original filename" "Deletion date and time" "File size"
 
 
     # Read metadata file ignoring header
@@ -279,7 +279,7 @@ list_recycled() {
 
       # Convert to readable size
       readable_size=$(transform_size "$size")
-      printf "%-35s | %-25s | %-20s | %-10s\n" "$id" "$original_name" "$deletion_date" "$readable_size"
+      printf "%-35s | %-25s | %-30s | %-12s\n" "$id" "$original_name" "$deletion_date" "$readable_size"
     done 
 
   # DETAILED MODE
