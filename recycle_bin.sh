@@ -467,19 +467,115 @@ restore_file() {
 
 
 
-# MAIN COMPLETAMENTE CHAT SÓ PARA TESTAR
+
+
+
+#################################################
+# Function: search_recycled
+# Description: Searches metadata by filename or path using a wildcard pattern.
+#              Supports case-insensitive searching.
+# Parameters: $1 - Search pattern (e.g., "*.txt", "report").
+#             $2 - (Optional) "-i" for case-insensitive search (can be $1 or $2).
+# Returns: 0 on success, 1 on error.
+#################################################
+search_recycled() {
+    initialize_recyclebin
+
+    local pattern
+    local case_flag=""
+
+    # Handle arguments. Pattern is mandatory, -i is optional.
+    if [ "$1" == "-i" ]; then
+        case_flag="-i"
+        pattern="$2"
+    elif [ "$2" == "-i" ]; then
+        case_flag="-i"
+        pattern="$1"
+    else
+        pattern="$1"
+    fi
+
+    # Requirement 1: Check for pattern
+    if [ -z "$pattern" ]; then
+        echo -e "${RED}ERROR: No search pattern specified.${NC}"
+        log_msg "ERROR" "Search attempt with no pattern."
+        return 1
+    fi
+
+    # Requirement 6: Case-insensitive search option
+    local shopt_reset=false
+    if [ "$case_flag" == "-i" ]; then
+        # Check if nocasematch is already set, so we can reset it properly
+        shopt -q nocasematch || shopt_reset=true
+        shopt -s nocasematch # Enable case-insensitive globbing
+    fi
+
+    local match_found=false
+    local line_count=0
+    local results_body="" # Store formatted lines
+
+    # Use process substitution < <(command) to read from the 'tail' command
+    # This avoids running the 'while' loop in a subshell,
+    # so variables (match_found, line_count) retain their values.
+    while IFS=',' read -r id name path date size type perms owner; do
+        
+        # Requirement 2 & 3: Search name (col 2) and path (col 3) using the wildcard pattern
+        if [[ "$name" == $pattern || "$path" == $pattern ]]; then
+            match_found=true
+            line_count=$((line_count + 1))
+            
+            local readable_size
+            readable_size=$(transform_size "$size")
+            # Append the formatted line (including its newline) to the results variable
+            results_body+=$(printf "%-35s | %-25s | %-30s | %-12s\n" "$id" "$name" "$date" "$readable_size")
+        fi
+    done < <(tail -n +2 "$METADATA_FILE") # Read from metadata, skip header
+
+    # Reset shell option if we changed it
+    if [ "$shopt_reset" = true ]; then
+        shopt -u nocasematch
+    fi
+
+    # Requirement 5: Show message if no matches found
+    if [ "$match_found" = false ]; then
+        echo -e "${YELLOW}No matches found for '$pattern'.${NC}"
+        log_msg "INFO" "Search for '$pattern' found 0 matches."
+    else
+        # Requirement 4: Display table format
+        echo -e "${YELLOW}Search results for '$pattern':${NC}"
+        # Print header
+        printf "${GREEN}%-35s | %-25s | %-30s | %-12s${NC}\n" "ID" "Original filename" "Deletion date and time" "File size"
+        # Print the stored body
+        echo "$results_body"
+        echo "Total matches found: $line_count"
+        log_msg "INFO" "Search for '$pattern' found $line_count matches."
+    fi
+    
+    return 0
+}
+
+# ... (colar a função search_recycled aqui) ...
+
+
+#################################################
+# Function: main
+# Description: Main test harness for the recycle bin script
+# Parameters: $@ - arguments passed to the script
+# Returns: 0
+#################################################
 main() {
-  echo -e "${YELLOW}=== [1/10] INITIALIZING RECYCLE BIN ===${NC}"
+  echo -e "${YELLOW}=== [1/11] INITIALIZING RECYCLE BIN ===${NC}"
   initialize_recyclebin
 
-  echo -e "${YELLOW}=== [2/10] PREPARING TEST ENVIRONMENT ===${NC}"
+  echo -e "${YELLOW}=== [2/11] PREPARING TEST ENVIRONMENT ===${NC}"
 
   # Limpar ambiente anterior
-  rm -rf teste1.txt teste2.txt dir_teste sem_permissao.txt 2>/dev/null
+  rm -rf teste1.txt teste2.txt dir_teste sem_permissao.txt RELATORIO.PDF 2>/dev/null
 
   # Criar ficheiros de teste
   echo "Conteúdo de teste 1" > teste1.txt
   echo "Conteúdo de teste 2" > teste2.txt
+  echo "Um relatório importante" > RELATORIO.PDF
 
   # Criar diretório com subdiretórios e ficheiros
   mkdir -p dir_teste/subdir
@@ -498,7 +594,7 @@ main() {
   #################################################
   # 🧨 TESTES DE ERRO
   #################################################
-  echo -e "${YELLOW}=== [3/10] TESTES DE ERRO ===${NC}"
+  echo -e "${YELLOW}=== [3/11] TESTES DE ERRO ===${NC}"
 
   # 1️⃣ Nenhum argumento fornecido
   echo -e "${YELLOW}-- Teste: Nenhum argumento fornecido --${NC}"
@@ -523,11 +619,11 @@ main() {
   #################################################
   # ✅ TESTES DE SUCESSO - DELETE
   #################################################
-  echo -e "${YELLOW}=== [4/10] TESTES DE SUCESSO: DELETE ===${NC}"
+  echo -e "${YELLOW}=== [4/11] TESTES DE SUCESSO: DELETE ===${NC}"
 
   # 5️⃣ Apagar ficheiros simples
   echo -e "${YELLOW}-- Teste: Apagar ficheiros válidos --${NC}"
-  delete_file teste1.txt teste2.txt
+  delete_file teste1.txt teste2.txt RELATORIO.PDF
 
   # 6️⃣ Apagar diretório recursivamente
   echo -e "${YELLOW}-- Teste: Apagar diretório recursivamente --${NC}"
@@ -536,27 +632,55 @@ main() {
   #################################################
   # 📋 VERIFICAR CONTEÚDOS DA RECICLAGEM
   #################################################
-  echo -e "${YELLOW}=== [5/10] LISTAGEM NORMAL ===${NC}"
+  echo -e "${YELLOW}=== [5/11] LISTAGEM NORMAL ===${NC}"
   list_recycled
 
-  echo -e "${YELLOW}=== [6/10] LISTAGEM DETALHADA ===${NC}"
+  echo -e "${YELLOW}=== [6/11] LISTAGEM DETALHADA ===${NC}"
   list_recycled --detailed
+
+
+  #################################################
+  # 🔎 TESTES DE PESQUISA (SEARCH)
+  #################################################
+  echo -e "${YELLOW}=== [7/11] TESTES DE SEARCH ===${NC}"
+
+  echo -e "${YELLOW}-- Teste: Pesquisa por nome exato (teste1.txt) --${NC}"
+  search_recycled "teste1.txt"
+
+  echo -e "${YELLOW}-- Teste: Pesquisa por wildcard (*.txt) --${NC}"
+  search_recycled "*.txt"
+
+  echo -e "${YELLOW}-- Teste: Pesquisa por nome parcial (dir*) --${NC}"
+  search_recycled "dir*"
+
+  echo -e "${YELLOW}-- Teste: Pesquisa sem resultados (nao_existe.zip) --${NC}"
+  search_recycled "nao_existe.zip"
+
+  echo -e "${YELLOW}-- Teste: Pesquisa case-insensitive (relatorio.pdf) --${NC}"
+  search_recycled "relatorio.pdf" -i
+
+  echo -e "${YELLOW}-- Teste: Pesquisa case-insensitive wildcard (*.pdf) --${NC}"
+  search_recycled "*.pdf" -i
+  
+  echo -e "${YELLOW}-- Teste: Pesquisa sem padrão (erro) --${NC}"
+  search_recycled ""
+
 
   #################################################
   # 🔁 TESTES DE RESTAURAÇÃO
   #################################################
-  echo -e "${YELLOW}=== [7/10] TESTES DE RESTORE ===${NC}"
+  echo -e "${YELLOW}=== [8/11] TESTES DE RESTORE ===${NC}"
 
   # Obter ID de um dos ficheiros apagados
   local id_teste
-  id_teste=$(awk -F',' 'NR==2 {print $1}' "$METADATA_FILE")
+  id_teste=$(awk -F',' '/teste1.txt/ {print $1; exit}' "$METADATA_FILE")
 
   echo -e "${YELLOW}-- Teste: Restaurar por ID ($id_teste) --${NC}"
   restore_file "$id_teste"
 
   # Restaurar por nome
   local nome_teste
-  nome_teste=$(awk -F',' 'NR==2 {print $2}' "$METADATA_FILE")
+  nome_teste=$(awk -F',' '/teste2.txt/ {print $2; exit}' "$METADATA_FILE")
 
   echo -e "${YELLOW}-- Teste: Restaurar por nome ($nome_teste) --${NC}"
   restore_file "$nome_teste"
@@ -568,43 +692,49 @@ main() {
   #################################################
   # 💾 TESTE DE CONFLITO DE NOMES
   #################################################
-  echo -e "${YELLOW}=== [8/10] TESTE DE CONFLITO ===${NC}"
+  echo -e "${YELLOW}=== [9/11] TESTE DE CONFLITO ===${NC}"
 
   # Criar novamente um ficheiro igual ao que foi apagado antes
   echo "Novo ficheiro conflito" > teste1.txt
   delete_file teste1.txt
 
   # Restaurar o mesmo ficheiro (deve detetar conflito)
-  id_conf=$(awk -F',' 'NR>1 {print $1; exit}' "$METADATA_FILE")
+  id_conf=$(awk -F',' '/teste1.txt/ {print $1; exit}' "$METADATA_FILE")
   echo -e "${YELLOW}-- Teste: Restaurar com conflito (ficheiro já existe) --${NC}"
-  echo "R" | restore_file "$id_conf"
+  echo "R" | restore_file "$id_conf" # Simula o utilizador a escolher 'R' (Rename)
 
   #################################################
   # 🧹 TESTE DE ESPAÇO INSUFICIENTE (simulado)
   #################################################
-  echo -e "${YELLOW}=== [9/10] TESTE DE ESPAÇO INSUFICIENTE (simulação) ===${NC}"
+  echo -e "${YELLOW}=== [10/11] TESTE DE ESPAÇO INSUFICIENTE (simulação) ===${NC}"
 
   # Simular sem espaço (forçar bytes_available a 0 temporariamente)
   bytes_available() { echo 0; }
   echo "Forçar falta de espaço: tentar apagar ficheiro de teste"
   echo "Pequeno conteúdo" > pequeno.txt
   delete_file pequeno.txt
+  rm pequeno.txt 2>/dev/null
+
+  # IMPORTANTE: Restaurar a função original para o resto dos testes
+  unset -f bytes_available
 
   #################################################
   # 📜 VISUALIZAÇÃO FINAL DE LOGS E METADADOS
   #################################################
-  echo -e "${YELLOW}=== [10/10] VERIFICAÇÃO FINAL ===${NC}"
+  echo -e "${YELLOW}=== [11/11] VERIFICAÇÃO FINAL ===${NC}"
   echo -e "${GREEN}Últimos registos de log:${NC}"
-  tail -n 15 "$LOG_FILE"
+  tail -n 20 "$LOG_FILE"
   echo
   echo -e "${GREEN}Conteúdo atual do metadata.db:${NC}"
   cat "$METADATA_FILE"
   echo
 
   echo -e "${GREEN}=== TESTES CONCLUÍDOS COM SUCESSO ===${NC}"
+  
+  # Limpeza final
+  rm -rf teste1.txt teste2.txt dir_teste RELATORIO.PDF *restored* 2>/dev/null
 }
 
-
-lalalalalalalala 
+# MAIN COMPLETAMENTE CHAT SÓ PARA TESTAR
 
 main "$@"
