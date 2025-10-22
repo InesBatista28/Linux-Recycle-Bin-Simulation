@@ -142,6 +142,21 @@ transform_size() {
 delete_file() {
   initialize_recyclebin
 
+  # Load configuration (MAX_SIZE_MB)
+  if [ -f "$CONFIG_FILE" ]
+  then
+    # Search inside of the file the line that starts with "MAX_SIZE_MB" to pass on to cut in order to get just the number
+    MAX_SIZE_MB=$(grep -E '^MAX_SIZE_MB=' "$CONFIG_FILE" | cut -d'=' -f2)
+  else
+    MAX_SIZE_MB=1024  # Default fallback
+  fi
+
+  # Calculate current recycle bin size and maximum limit (in bytes)
+  local current_bin_size 
+  local max_bin_bytes
+  current_bin_size=$(du -sb "$FILES_DIR" 2>/dev/null | awk '{print $1}')
+  max_bin_bytes=$((MAX_SIZE_MB * 1024 * 1024))
+
   # Check if arguments were provided
   if [ $# -eq 0 ]
   then  
@@ -180,8 +195,7 @@ delete_file() {
 
     id=$(generate_id)
 
-
-    # Determine type and size of the item to check if it fits in the bin
+    # Determine type and size of the item
     if [ -d "$item" ]
     then
       type="directory"
@@ -191,7 +205,15 @@ delete_file() {
       size=$(stat -c %s "$item")
     fi
 
-    # Check available space
+    # Check recycle bin capacity (MAX_SIZE_MB)
+    if (( current_bin_size + size > max_bin_bytes ))
+    then
+      echo -e "${RED}ERROR: Recycle Bin limit exceeded (${MAX_SIZE_MB}MB). Cannot move '$item'.${NC}"
+      log_msg "ERROR" "Recycle Bin full — limit ${MAX_SIZE_MB}MB exceeded when adding $item"
+      continue
+    fi
+
+    # Check available disk space
     available=$(bytes_available)
     available=${available:-0}  
     if [ "$available" -lt "$size" ]; then
@@ -199,8 +221,6 @@ delete_file() {
       log_msg "ERROR" "Insufficient space for $item, size $size bytes."
       continue
     fi
-
-
 
     # Data to store in metadata.db
     original_name=$(basename "$item")
@@ -218,6 +238,9 @@ delete_file() {
       log_msg "ERROR" "Failed to move $item to Recycle Bin"
       continue
     fi
+
+    # Update recycle bin size (for multi-file operations)
+    current_bin_size=$((current_bin_size + size))
 
     # Successful move
     echo -e "${GREEN} '$original_name' moved to Recycle Bin.${NC}"
