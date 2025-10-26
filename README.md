@@ -20,10 +20,18 @@ A Linux Recycle Bin Simulator implemented in Bash. This script provides a safe m
 3. Add to your PATH for global use:
     ```bash
     export PATH="$PATH:$(pwd)"
+    ```
 
 ## Usage
-The main script recycle_bin.sh accepts multiple commands:
+To run the Linux Recycle Bin System, use the following syntax:
 
+```bash
+./recycle_bin.sh <command> [options] [arguments]
+```
+
+Available Commands:
+* help, -h, --help - Display usage information
+* delete <file/dir> [...] - Move files or directories to the Recycle Bin
 
 ## Features
 - [List of implemented features]
