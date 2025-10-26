@@ -7,8 +7,8 @@ This document describes test cases for the Linux Recycle Bin Simulator.
 **Objective:** Verify that the help command displays usage information correctly  
 
 **Steps:**
-    1. Run: `./recycle_bin.sh help`  
-    2. Check that usage information is displayed  
+1. Run: `./recycle_bin.sh help`  
+2. Check that usage information is displayed  
 
 **Expected Result:**
 - Help message is printed  
