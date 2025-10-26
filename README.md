@@ -10,11 +10,20 @@ A Linux Recycle Bin Simulator implemented in Bash. This script provides a safe m
 ## Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/Linux-Recycle-Bin-Simulation.git
+   git clone https://github.com/InesBatista28/Linux-Recycle-Bin-Simulation.git
    cd Linux-Recycle-Bin-Simulation
-   
+
+2. Ensure the main script is executable:
+    ```bash
+    chmod +x recycle_bin.sh
+
+3. Add to your PATH for global use:
+    ```bash
+    export PATH="$PATH:$(pwd)"
+
 ## Usage
-[How to use with examples]
+The main script recycle_bin.sh accepts multiple commands:
+
 
 ## Features
 - [List of implemented features]
