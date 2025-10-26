@@ -30,8 +30,8 @@ To run the Linux Recycle Bin System, use the following syntax:
 ```
 
 Available Commands:
-* help, -h, --help - Display usage information
-* delete <file/dir> [...] - Move files or directories to the Recycle Bin
+* ```help, -h, --help``` - Display usage information
+* ```delete <file/dir> [...]``` - Move files or directories to the Recycle Bin
 
 ## Features
 - [List of implemented features]
