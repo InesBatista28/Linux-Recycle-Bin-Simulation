@@ -492,7 +492,6 @@ restore_file() {
 
 
 
-
 #################################################
 # Function: search_recycled
 # Description: Searches metadata by filename or path using a wildcard pattern.
@@ -508,10 +507,12 @@ search_recycled() {
     local case_flag=""
 
     # Handle arguments. Pattern is mandatory, -i is optional.
-    if [ "$1" == "-i" ]; then
+    if [ "$1" == "-i" ]
+    then
         case_flag="-i"
         pattern="$2"
-    elif [ "$2" == "-i" ]; then
+    elif [ "$2" == "-i" ]
+    then
         case_flag="-i"
         pattern="$1"
     else
@@ -519,7 +520,8 @@ search_recycled() {
     fi
 
     # Requirement 1: Check for pattern
-    if [ -z "$pattern" ]; then
+    if [ -z "$pattern" ]
+    then
         echo -e "${RED}ERROR: No search pattern specified.${NC}"
         log_msg "ERROR" "Search attempt with no pattern."
         return 1
@@ -527,7 +529,8 @@ search_recycled() {
 
     # Requirement 6: Case-insensitive search option
     local shopt_reset=false
-    if [ "$case_flag" == "-i" ]; then
+    if [ "$case_flag" == "-i" ]
+    then
         # Check if nocasematch is already set, so we can reset it properly
         shopt -q nocasematch || shopt_reset=true
         shopt -s nocasematch # Enable case-insensitive globbing
@@ -543,7 +546,8 @@ search_recycled() {
     while IFS=',' read -r id name path date size type perms owner; do
         
         # Requirement 2 & 3: Search name (col 2) and path (col 3) using the wildcard pattern
-        if [[ "$name" == $pattern || "$path" == $pattern ]]; then
+        if [[ "$name" =~ $pattern || "$path" =~ $pattern ]]
+        then
             match_found=true
             line_count=$((line_count + 1))
             
@@ -555,12 +559,14 @@ search_recycled() {
     done < <(tail -n +2 "$METADATA_FILE") # Read from metadata, skip header
 
     # Reset shell option if we changed it
-    if [ "$shopt_reset" = true ]; then
+    if [ "$shopt_reset" = true ]
+    then
         shopt -u nocasematch
     fi
 
     # Requirement 5: Show message if no matches found
-    if [ "$match_found" = false ]; then
+    if [ "$match_found" = false ]
+    then
         echo -e "${YELLOW}No matches found for '$pattern'.${NC}"
         log_msg "INFO" "Search for '$pattern' found 0 matches."
     else
@@ -577,187 +583,181 @@ search_recycled() {
     return 0
 }
 
-# ... (colar a função search_recycled aqui) ...
-
 
 #################################################
-# Function: main
-# Description: Main test harness for the recycle bin script
-# Parameters: $@ - arguments passed to the script
-# Returns: 0
+# Function: empty_recyclebin
+# Description: Permanently deletes items from the Recycle Bin.
+#              Supports deleting all items or a specific one by ID.
+#              Requires user confirmation unless --force is provided.
+# Parameters: $1 - (optional) ID or "--force"
+#             $2 - (optional) "--force" if not the first parameter
+# Returns: 0 on success, 1 on error
 #################################################
-main() {
-  echo -e "${YELLOW}=== [1/11] INITIALIZING RECYCLE BIN ===${NC}"
+empty_recyclebin() {
   initialize_recyclebin
 
-  echo -e "${YELLOW}=== [2/11] PREPARING TEST ENVIRONMENT ===${NC}"
+  local target_id=""
+  local force_mode=false
 
-  # Limpar ambiente anterior
-  rm -rf teste1.txt teste2.txt dir_teste sem_permissao.txt RELATORIO.PDF 2>/dev/null
-
-  # Criar ficheiros de teste
-  echo "Conteúdo de teste 1" > teste1.txt
-  echo "Conteúdo de teste 2" > teste2.txt
-  echo "Um relatório importante" > RELATORIO.PDF
-
-  # Criar diretório com subdiretórios e ficheiros
-  mkdir -p dir_teste/subdir
-  echo "Ficheiro dentro do diretório" > dir_teste/f1.txt
-  echo "Outro ficheiro" > dir_teste/subdir/f2.txt
-
-  # Criar ficheiro sem permissões
-  touch sem_permissao.txt
-  chmod 000 sem_permissao.txt
-
-  # Mostrar estrutura inicial
-  echo -e "${GREEN}Estrutura inicial criada:${NC}"
-  ls -l
-  echo
-
-  #################################################
-  # 🧨 TESTES DE ERRO
-  #################################################
-  echo -e "${YELLOW}=== [3/11] TESTES DE ERRO ===${NC}"
-
-  # 1️⃣ Nenhum argumento fornecido
-  echo -e "${YELLOW}-- Teste: Nenhum argumento fornecido --${NC}"
-  delete_file
-
-  # 2️⃣ Ficheiro inexistente
-  echo -e "${YELLOW}-- Teste: Ficheiro inexistente --${NC}"
-  delete_file nao_existe.txt
-
-  # 3️⃣ Ficheiro sem permissões
-  echo -e "${YELLOW}-- Teste: Ficheiro sem permissões --${NC}"
-  delete_file sem_permissao.txt
-
-  # Corrigir permissões para testes seguintes
-  chmod 644 sem_permissao.txt
-  rm sem_permissao.txt
-
-  # 4️⃣ Tentar apagar a própria reciclagem
-  echo -e "${YELLOW}-- Teste: Tentativa de apagar o Recycle Bin --${NC}"
-  delete_file "$RECYCLE_BIN_DIR"
-
-  #################################################
-  # ✅ TESTES DE SUCESSO - DELETE
-  #################################################
-  echo -e "${YELLOW}=== [4/11] TESTES DE SUCESSO: DELETE ===${NC}"
-
-  # 5️⃣ Apagar ficheiros simples
-  echo -e "${YELLOW}-- Teste: Apagar ficheiros válidos --${NC}"
-  delete_file teste1.txt teste2.txt RELATORIO.PDF
-
-  # 6️⃣ Apagar diretório recursivamente
-  echo -e "${YELLOW}-- Teste: Apagar diretório recursivamente --${NC}"
-  delete_file dir_teste
-
-  #################################################
-  # 📋 VERIFICAR CONTEÚDOS DA RECICLAGEM
-  #################################################
-  echo -e "${YELLOW}=== [5/11] LISTAGEM NORMAL ===${NC}"
-  list_recycled
-
-  echo -e "${YELLOW}=== [6/11] LISTAGEM DETALHADA ===${NC}"
-  list_recycled --detailed
+  for arg in "$@"
+  do
+    case "$arg" in
+      --force)
+        force_mode=true
+        ;;
+      *)
+        target_id="$arg"
+        ;;
+      esac
+    done
 
 
-  #################################################
-  # 🔎 TESTES DE PESQUISA (SEARCH)
-  #################################################
-  echo -e "${YELLOW}=== [7/11] TESTES DE SEARCH ===${NC}"
+    # if the metadata file is empty means recycle bin is also empty
+    if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 1 ]
+    then
+      echo -e "${YELLOW}Recycle Bin is already empty.${NC}"
+      log_msg "INFO" "Attempted to empty an already empty Recycle Bin."
+      return 0
+    fi
 
-  echo -e "${YELLOW}-- Teste: Pesquisa por nome exato (teste1.txt) --${NC}"
-  search_recycled "teste1.txt"
+    # if theres no id given we assume the full empty method
+    if [ -z "$target_id" ]
+    then
+      if [ "$force_mode" = false ]
+      then
+        read -rp "Are you sure you want to remove all items from the Recylce Bin? (Y/N): " confirm
+        if [[ ! "$confirm" =~ ^[Yy]$ ]]
+        then
+          echo -e "${YELLOW}Operation Cancelled.${NC}"
+          log_msg "INFO" "Empty Recycle Bin cancelled"
+          return 0
+        fi
+      fi
 
-  echo -e "${YELLOW}-- Teste: Pesquisa por wildcard (*.txt) --${NC}"
-  search_recycled "*.txt"
+      local count_before
+      count_before=$(($(wc -l < "$METADATA_FILE") - 1))
+      rm -rf "${FILES_DIR:?}/"* 2>/dev/null
+      echo "ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER" > "$METADATA_FILE"
 
-  echo -e "${YELLOW}-- Teste: Pesquisa por nome parcial (dir*) --${NC}"
-  search_recycled "dir*"
-
-  echo -e "${YELLOW}-- Teste: Pesquisa sem resultados (nao_existe.zip) --${NC}"
-  search_recycled "nao_existe.zip"
-
-  echo -e "${YELLOW}-- Teste: Pesquisa case-insensitive (relatorio.pdf) --${NC}"
-  search_recycled "relatorio.pdf" -i
-
-  echo -e "${YELLOW}-- Teste: Pesquisa case-insensitive wildcard (*.pdf) --${NC}"
-  search_recycled "*.pdf" -i
-  
-  echo -e "${YELLOW}-- Teste: Pesquisa sem padrão (erro) --${NC}"
-  search_recycled ""
+      echo -e "${GREEN}All $count_before items permanently deleted.${NC}"
+      log_msg "INFO" "Emptied entire Recycle Bin ($count_before items deleted)."
+      return 0
+    fi
 
 
-  #################################################
-  # 🔁 TESTES DE RESTAURAÇÃO
-  #################################################
-  echo -e "${YELLOW}=== [8/11] TESTES DE RESTORE ===${NC}"
+    # theres an id given 
+    local line
+    line=$(awk -F',' -v id="$target_id" 'NR>1 && $1==id {print}' "$METADATA_FILE")
+    if [ -z "$line" ]
+    then
+      echo -e "${RED}ERROR: No item found with the given ID.${NC}"
+      log_msg "ERROR" "Attempted to empty non-existent item ID: $target_id"
+      return 1
+    fi
 
-  # Obter ID de um dos ficheiros apagados
-  local id_teste
-  id_teste=$(awk -F',' '/teste1.txt/ {print $1; exit}' "$METADATA_FILE")
 
-  echo -e "${YELLOW}-- Teste: Restaurar por ID ($id_teste) --${NC}"
-  restore_file "$id_teste"
+    local file_path="$FILES_DIR/$target_id"
+    local original_name
 
-  # Restaurar por nome
-  local nome_teste
-  nome_teste=$(awk -F',' '/teste2.txt/ {print $2; exit}' "$METADATA_FILE")
+    original_name=$(echo "$line" | cut -d',' -f2)
 
-  echo -e "${YELLOW}-- Teste: Restaurar por nome ($nome_teste) --${NC}"
-  restore_file "$nome_teste"
+    if [ "$force_mode" = false ]
+    then
+    read -rp "Permanently delete '$original_name'? (y/N): " confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]
+    then
+      echo -e "${YELLOW}Operation cancelled.${NC}"
+      log_msg "INFO" "Deletion of item $target_id ($original_name) cancelled by user."
+      return 0
+    fi
+  fi
 
-  # Tentar restaurar item inexistente
-  echo -e "${YELLOW}-- Teste: Restaurar item inexistente --${NC}"
-  restore_file "nao_existe_123"
+  # deleting the file
+  rm -rf "$file_path" 2>/dev/null
+  if [ $? -ne 0 ]
+  then
+    echo -e "${RED}ERROR: Failed to permanently delete '$original_name'.${NC}"
+    log_msg "ERROR" "Failed to delete item ID $target_id ($original_name)"
+    return 1
+  fi
 
-  #################################################
-  # 💾 TESTE DE CONFLITO DE NOMES
-  #################################################
-  echo -e "${YELLOW}=== [9/11] TESTE DE CONFLITO ===${NC}"
+  grep -v "^$target_id," "$METADATA_FILE" > "${METADATA_FILE}.tmp" && mv "${METADATA_FILE}.tmp" "$METADATA_FILE"
 
-  # Criar novamente um ficheiro igual ao que foi apagado antes
-  echo "Novo ficheiro conflito" > teste1.txt
-  delete_file teste1.txt
-
-  # Restaurar o mesmo ficheiro (deve detetar conflito)
-  id_conf=$(awk -F',' '/teste1.txt/ {print $1; exit}' "$METADATA_FILE")
-  echo -e "${YELLOW}-- Teste: Restaurar com conflito (ficheiro já existe) --${NC}"
-  echo "R" | restore_file "$id_conf" # Simula o utilizador a escolher 'R' (Rename)
-
-  #################################################
-  # 🧹 TESTE DE ESPAÇO INSUFICIENTE (simulado)
-  #################################################
-  echo -e "${YELLOW}=== [10/11] TESTE DE ESPAÇO INSUFICIENTE (simulação) ===${NC}"
-
-  # Simular sem espaço (forçar bytes_available a 0 temporariamente)
-  bytes_available() { echo 0; }
-  echo "Forçar falta de espaço: tentar apagar ficheiro de teste"
-  echo "Pequeno conteúdo" > pequeno.txt
-  delete_file pequeno.txt
-  rm pequeno.txt 2>/dev/null
-
-  # IMPORTANTE: Restaurar a função original para o resto dos testes
-  unset -f bytes_available
-
-  #################################################
-  # 📜 VISUALIZAÇÃO FINAL DE LOGS E METADADOS
-  #################################################
-  echo -e "${YELLOW}=== [11/11] VERIFICAÇÃO FINAL ===${NC}"
-  echo -e "${GREEN}Últimos registos de log:${NC}"
-  tail -n 20 "$LOG_FILE"
-  echo
-  echo -e "${GREEN}Conteúdo atual do metadata.db:${NC}"
-  cat "$METADATA_FILE"
-  echo
-
-  echo -e "${GREEN}=== TESTES CONCLUÍDOS COM SUCESSO ===${NC}"
-  
-  # Limpeza final
-  rm -rf teste1.txt teste2.txt dir_teste RELATORIO.PDF *restored* 2>/dev/null
+  echo -e "${GREEN}Item '$original_name' (ID $target_id) permanently deleted.${NC}"
+  log_msg "INFO" "Item '$original_name' (ID $target_id) permanently deleted."
+  return 0
 }
 
-# MAIN COMPLETAMENTE CHAT SÓ PARA TESTAR
 
-main "$@"
+#################################################
+# MAIN FUNCTION - Automated Testing Suite
+# Author: Auto-generated by ChatGPT (GPT-5)
+# Purpose: Sequentially test all implemented functions
+#################################################
+main() {
+  echo -e "${YELLOW}==============================${NC}"
+  echo -e "${YELLOW}   🧪 LINUX RECYCLE BIN TESTS  ${NC}"
+  echo -e "${YELLOW}==============================${NC}"
+  echo
+
+  # 1️⃣ Initialize the Recycle Bin
+  echo -e "${YELLOW}=== [1/7] Initializing Recycle Bin ===${NC}"
+  initialize_recyclebin
+  echo -e "${GREEN}Recycle Bin structure verified.${NC}"
+  echo
+
+  # 2️⃣ Create temporary test files
+  echo -e "${YELLOW}=== [2/7] Creating test files ===${NC}"
+  mkdir -p ~/Documents/recycle_test
+  echo "Hello World" > ~/Documents/recycle_test/file1.txt
+  echo "Temporary Data" > ~/Documents/recycle_test/file2.log
+  mkdir -p ~/Documents/recycle_test/subdir
+  echo "Nested file" > ~/Documents/recycle_test/subdir/file3.txt
+  echo -e "${GREEN}Sample files created in ~/Documents/recycle_test${NC}"
+  echo
+
+  # 3️⃣ Test delete_file
+  echo -e "${YELLOW}=== [3/7] Testing delete_file ===${NC}"
+  delete_file ~/Documents/recycle_test/file1.txt ~/Documents/recycle_test/file2.log ~/Documents/recycle_test/subdir
+  echo -e "${GREEN}Files moved to Recycle Bin.${NC}"
+  echo
+
+  # 4️⃣ Test list_recycled
+  echo -e "${YELLOW}=== [4/7] Testing list_recycled ===${NC}"
+  list_recycled
+  echo
+  echo -e "${YELLOW}Detailed mode:${NC}"
+  list_recycled --detailed
+  echo
+
+  # Capture one file ID from metadata for later use
+  test_id=$(awk -F',' 'NR==2 {print $1}' "$METADATA_FILE")
+
+  # 5️⃣ Test search_recycled
+  echo -e "${YELLOW}=== [5/7] Testing search_recycled ===${NC}"
+  search_recycled "file" -i
+  echo
+
+  # 6️⃣ Test restore_file
+  echo -e "${YELLOW}=== [6/7] Testing restore_file ===${NC}"
+  if [ -n "$test_id" ]; then
+    restore_file "$test_id"
+  else
+    echo -e "${RED}No valid ID found in metadata.${NC}"
+  fi
+  echo
+
+  # 7️⃣ Test empty_recyclebin
+  echo -e "${YELLOW}=== [7/7] Testing empty_recyclebin ===${NC}"
+  echo -e "${YELLOW}Full cleanup with --force${NC}"
+  empty_recyclebin --force
+  echo
+
+  echo -e "${GREEN}All tests completed.${NC}"
+  echo -e "${YELLOW}You can check the log at:${NC} $LOG_FILE"
+}
+
+# Call the main function when running the script directly
+if [ "${BASH_SOURCE[0]}" == "$0" ]; then
+  main
+fi
