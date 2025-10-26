@@ -769,12 +769,13 @@ main() {
             display_help
             ;;
         delete)
-            if [ $# -eq 0 ]; then
-                echo -e "${RED}ERROR: No file/directory specified to delete.${NC}"
-                exit 1
-            fi
-            delete_file "$@"
-            ;;
+          if [ $# -eq 0 ] || [ "$1" == "--help" ]; then
+            echo -e "${YELLOW}Usage: ./recycle_bin.sh delete <file/dir> [...]${NC}"
+            exit 0
+          fi
+          delete_file "$@"
+          ;;
+
         list)
             list_recycled "$@"
             ;;

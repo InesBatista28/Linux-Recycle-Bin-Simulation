@@ -21,3 +21,60 @@ This document describes test cases for the Linux Recycle Bin Simulator.
 
 **Screenshots:** 
 ![Command Help Screenshot](screenshots/command_help.png)
+
+---
+
+### Test Case 2: Initialization of Recycle Bin
+**Objective:** Ensure the recycle bin structure is created on first run  
+
+**Steps:**
+1. Remove any existing recycle bin: `rm -rf ~/.recycle_bin`  
+2. Run any command, e.g.: `./recycle_bin.sh help`  
+3. Verify that `~/.recycle_bin/` directory is created  
+4. Check for `files/`, `metadata.db`, `config`, and `recyclebin.log`  
+
+**Expected Result:**
+- Directories and files are created  
+
+**Actual Result:**  
+- `~/.recycle_bin/` created  
+- Subdirectory `files/` created  
+- Metadata file initialized with header  
+- Config file created with defaults  
+- Empty log file created  
+
+**Status:** ☑ Pass ☐ Fail  
+
+**Screenshots:** 
+![Initialization of Recycle Bin Screenshot](screenshots/initialization_recycle_bin.png)
+
+---
+
+### Test Case 3: Delete Single File
+**Objective:** Verify that a single file can be deleted successfully  
+
+**Steps:**
+1. Create test file: `echo "test" > test.txt`  
+2. Run: `./recycle_bin.sh delete test.txt`  
+3. Verify file is removed from current directory  
+4. Run: `./recycle_bin.sh list`  
+5. Verify file appears in recycle bin  
+
+**Expected Result:**
+- File is moved to `~/.recycle_bin/files/`  
+- Metadata entry is created  
+- Success message is displayed  
+- File appears in list output  
+
+**Actual Result:**  
+- `'test.txt' moved to Recycle Bin` printed in green  
+- File removed from current directory  
+- Metadata entry added to `metadata.db`  
+- Appears in `list` output with ID, deletion date, and size  
+
+**Status:** ☑ Pass ☐ Fail  
+
+**Screenshots:** 
+![Delete a Single File Screenshot](screenshots/delete_single_file.png)
+
+---
