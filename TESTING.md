@@ -78,3 +78,59 @@ This document describes test cases for the Linux Recycle Bin Simulator.
 ![Delete a Single File Screenshot](screenshots/delete_single_file.png)
 
 ---
+
+### Test Case 4: Delete Multiple Files/Directories
+**Objective:** Verify deletion of multiple items at once  
+
+**Steps:**
+1. Create files and directories:  
+   ```bash
+   echo "a" > file1.txt
+   echo "b" > file2.txt
+   mkdir folder1
+   ´´´
+2. Run: `./recycle_bin.sh delete file1.txt file2.txt folder1`  
+3. Verify items are removed from original locations 
+4. Run: `./recycle_bin.sh list`  
+5. Verify all items appear in recycle bin  
+
+**Expected Result:**
+- All items moved to recycle bin
+- Metadata entries exist for each
+
+**Actual Result:**  
+- All items removed from current directory
+- Each item successfully moved with unique ID
+- Metadata updated with ID, path, size, type, permissions, owner
+- List shows all items 
+
+**Status:** ☑ Pass ☐ Fail  
+
+**Screenshots:** 
+![Delete Multiple Files/Directories Screenshot](screenshots/delete_multiple_files.png)
+
+---
+
+### Test Case 5: Delete Nonexistent File
+**Objective:** Ensure proper error handling for nonexistent files
+
+**Steps:**
+1. Run: `./recycle_bin.sh delete nonexistent.txt`   
+
+**Expected Result:**
+- Error message displayed
+- Exit code indicates failure
+
+**Actual Result:**  
+- `"ERROR: 'nonexistent.txt' does not exist."` printed in red
+- Entry logged in recyclebin.log
+- Exit code 0 (loop continues, overall function returns 0 if at least one valid deletion occurred; returns 1 if none)
+
+**Status:** ☑ Pass ☐ Fail  
+
+**Screenshots:** 
+![Delete Nonexistent File Screenshot](screenshots/nonexistent_file.png)
+
+---
+
+
