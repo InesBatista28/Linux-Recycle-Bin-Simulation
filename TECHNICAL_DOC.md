@@ -32,14 +32,14 @@ Maria Quinteiro, 124996
 **Schema Definition:**
 | **#** | **Field Name** | **Description** |
 |:---:|-------------------|------------------|
-| 1 | `ID` | Unique identifier composed of the timestamp (in nanoseconds) and process ID. |
+| 1 | ID | Unique identifier composed of the timestamp (in nanoseconds) and process ID. |
 | 2 | `ORIGINAL_NAME` | The file’s original name before deletion. |
-| 3 | `ORIGINAL_PATH` | The absolute path to the file before deletion. |
-| 4 | `DELETION_DATE` | Date and time when the file was moved to the Recycle Bin. |
+| 3 | ORIGINAL_PATH | The absolute path to the file before deletion. |
+| 4 | DELETION_DATE | Date and time when the file was moved to the Recycle Bin. |
 | 5 | `FILE_SIZE` | Size of the file in bytes. |
-| 6 | `FILE_TYPE` | Type of the deleted item — either `file` or `directory`. |
+| 6 | FILE_TYPE | Type of the deleted item — either `file` or `directory`. |
 | 7 | `PERMISSIONS` | Original Unix permissions (e.g., `644` or `755`). |
-| 8 | `OWNER` | Owner of the file in the format `user:group`. |
+| 8 | OWNER | Owner of the file in the format `user:group`. |
 
 
 **Example Entry:**
@@ -66,10 +66,10 @@ Finally, the OWNER field represented here as ```ines:users```.
 
 ## 4. Function Descriptions
 ### 4.1. log_msg
-Takes two arguments — a log level (string) and a message (string) — and appends a formatted entry to the log file. It generates a timestamp using date.
-It logs messages to a file with a timestamp and log level (e.g., INFO, ERROR) for auditing and debugging purposes.
+Takes two arguments — a log level (string) and a message (string) — and appends a formatted entry to the log file. It generates a timestamp automatically.  
+It logs messages with a timestamp and log level (e.g., INFO, ERROR) for auditing and debugging purposes.  
 
-This function is crucial for traceability and error tracking across the entire script. It ensures all operations (deletions, restorations, etc.) are recorded, allowing users to review history and troubleshoot issues. Without it, the system lacks accountability, as other functions call it to log successes, failures, and warnings, making it a backbone for reliability in a file management tool.
+> **Important:** This function is crucial for traceability and error tracking across the entire script. All operations — deletions, restorations, errors, and warnings — are recorded here. Other functions call `log_msg` to log their outcomes, making it the backbone of reliability in the system.
 
 ### 4.2. initialize_recyclebin
 This function sets up the necessary directories, files, and default configurations for the recycle bin system if they don't already exist.
@@ -96,7 +96,34 @@ Accepts multiple file/directory paths as arguments. It validates existence, perm
 
 This is the core delete operation, central to the recycle bin's purpose. It integrates with initialization, ID generation, space checks, and logging to safely delete items (actually moving them). Other functions (list, restore, search) depend on the metadata it creates, making it indispensable for the system's primary functionality.
 
+### 4.7. list_recycled
+Displays the contents of the recycle bin in two distinct modes: a compact table format (normal mode) showing key details like ID, name, date, size, and type (file or directory), or a verbose, multi-line format (detailed mode - toggled by the optional ```--detailed``` flag) with all metadata fields for each item. In both modes, it includes totals for items and space used.
 
+Provides essential visibility into the recycle bin, allowing users to browse deleted items and make informed decisions. It relies on metadata created by delete_file, uses transform_size for clarity, and integrates with initialize_recyclebin for setup. The distinction between modes enhances usability: normal mode offers quick overviews with type differentiation for efficiency, while detailed mode provides in-depth info without cluttering the default view. This makes it a key interactive component, tying into search, restore, and cleanup functions for a complete user experience. Without it, users couldn't easily inspect the bin's contents, reducing the system's practicality.
+
+### 4.8. restore_file
+Takes an ID or filename as input, locates it in metadata, checks for conflicts, prompts for resolution (overwrite, rename, cancel), verifies space, moves the item back, restores permissions/ownership, and updates metadata. Handles directories recursively and errors like missing files or directories.
+
+This reverses deletions, making the recycle bin recoverable. It depends on metadata from delete_file, space checks from bytes_available, and logging. Without it, the system would be a one-way delete tool; it's essential for usability and integrates with list/search to allow targeted recovery.
+
+### 4.9. search_recycled
+Searches the recycle bin for items matching a pattern in name or path.
+Takes a search pattern (with optional -i flag), scans metadata for matches using regex, and displays results in a table. Handles no matches, case sensitivity, and formats output similarly to listing.
+
+Enables efficient querying of the recycle bin, complementing list_recycled. It uses metadata from deletions and transform_size for display. This function is vital for large bins, allowing users to find items quickly before restoring or emptying, enhancing the script's searchability and overall user experience.
+
+### 4.10. empty_recyclebin
+Permanently deletes items from the recycle bin, either all or by specific ID, with confirmation prompts unless forced.
+Provides the final cleanup mechanism, ensuring the recycle bin doesn't grow indefinitely. It integrates with metadata management and logging, relying on data from delete_file.
+
+### 4.11. display_help
+Prints a comprehensive help message with usage, commands, options, examples, and config details.
+Acts as the user guide, called from main for help commands. It's essential for accessibility, ensuring users understand the script without external documentation. Without it, the tool would be hard to use, making it a key entry point for new users.
+
+### 4.12. main
+Takes command-line arguments, validates the command, shifts arguments, and calls functions like delete_file or display_help. Handles unknown commands or missing arguments with errors.
+
+This is the entry point and orchestrator of the entire script. It ties all functions together, ensuring user commands are executed correctly. Without main, the script couldn't respond to inputs, making it the glue that enables the recycle bin's interactive functionality.
 
 
 ## 5. Design Decisions and Rationale
