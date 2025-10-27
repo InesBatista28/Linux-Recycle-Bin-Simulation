@@ -2,22 +2,22 @@
 This project implements a Linux Recycle Bin Simulator using pure Bash scripting.
 It replicates the behavior of a recycle bin, allowing users to delete, restore, search, list, and empty files or directories without permanent loss until explicitly emptied.
 
-The system uses a hidden directory (~/.recycle_bin) containing structured subfolders and metadata to track deleted items safely.
+The system uses a hidden directory `~/.recycle_bin` containing structured subfolders and metadata to track deleted items safely.
 
 ## Authors
 Inês Batista, 124877<br>
 Maria Quinteiro, 124996
 
-## System Architecture
-### Directory Structure
+## 1. System Architecture
+### 1.1. Directory Structure
 blalfkaefoaeodaked
 
-### ASCII Architecture Diagram
+### 1.2. ASCII Architecture Diagram
 eidjaefjoae
 
-## Data Flow Diagrams
-### Delete Operation4
+## 2. Data Flow Diagrams
+### 2.1. Delete Operation
 wdojaoewjdoawjd
 
-### Restore Operation
+### 2.2. Restore Operation
 dojawodja9wodj
