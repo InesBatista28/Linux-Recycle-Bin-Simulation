@@ -65,6 +65,38 @@ Finally, the OWNER field represented here as ```ines:users```.
 
 
 ## 4. Function Descriptions
+### 4.1. log_msg
+Takes two arguments — a log level (string) and a message (string) — and appends a formatted entry to the log file. It generates a timestamp using date.
+It logs messages to a file with a timestamp and log level (e.g., INFO, ERROR) for auditing and debugging purposes.
+
+This function is crucial for traceability and error tracking across the entire script. It ensures all operations (deletions, restorations, etc.) are recorded, allowing users to review history and troubleshoot issues. Without it, the system lacks accountability, as other functions call it to log successes, failures, and warnings, making it a backbone for reliability in a file management tool.
+
+### 4.2. initialize_recyclebin
+This function sets up the necessary directories, files, and default configurations for the recycle bin system if they don't already exist.
+Checks and creates the main recycle bin directory, a subdirectory for files, a metadata database file (with headers), a config file (with defaults like max size and retention), and an empty log file. It handles file system permissions implicitly through mkdir and touch.
+
+This is the foundational setup function, called at the start of most other functions. It ensures the recycle bin infrastructure is ready before any operations, preventing errors like missing directories. Without it, the script couldn't store or manage files safely, making it essential for initialization and consistency across delete, list, restore, and other operations.
+
+### 4.3. generate_id
+Generates a unique identifier for each deleted item using a combination of timestamp and process ID.
+
+Unique IDs are critical for tracking individual files in the metadata database and storage directory. This function is called during deletion to assign IDs, which are then used in listing, restoring, searching, and emptying. Without unique IDs, the system couldn't distinguish between items, leading to data corruption or loss in operations like restore or empty.
+
+### 4.4. bytes_available
+Uses df to query disk space for the recycle bin directory, with a fallback to 0 if the command fails. Calculates the available disk space in bytes for the recycle bin's location.
+
+Space checks are vital to prevent disk overflows during deletions and restorations. This function is invoked in delete_file and restore_file to ensure operations don't exceed available space, promoting system stability. It's a safety net that integrates with capacity limits, making the recycle bin robust against storage issues.
+
+### 4.5. transform_size
+Takes a byte value count as input and iteratively divides by 1024 until it fits a unit (B, KB, MB, etc.), outputting a string like "512MB".
+User-facing displays (in list and search functions) rely on readable sizes instead of raw bytes for clarity. This utility enhances usability by making output more intuitive, and it's called whenever sizes need presentation, ensuring consistent formatting across the script.
+
+### 4.6. delete_file
+Accepts multiple file/directory paths as arguments. It validates existence, permissions, recycle bin limits (from config), and disk space; generates metadata (ID, name, path, etc. (check 3. Metadata Schema)); and moves items to the recycle bin. Handles errors like non-existent files, full bin, or permission issues, logging them.
+
+This is the core delete operation, central to the recycle bin's purpose. It integrates with initialization, ID generation, space checks, and logging to safely delete items (actually moving them). Other functions (list, restore, search) depend on the metadata it creates, making it indispensable for the system's primary functionality.
+
+
 
 
 ## 5. Design Decisions and Rationale
