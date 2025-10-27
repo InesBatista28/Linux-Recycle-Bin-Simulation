@@ -26,6 +26,9 @@ Maria Quinteiro, 124996
 
 
 ## 3. Metadata Schema
+This section describes the structure and purpose of the metadata database used by the recycle bin system.  
+It explains each field stored in `metadata.db`, why it is necessary, and how it supports accurate tracking, restoration, and auditing of deleted files.
+
 **File:** `~/.recycle_bin/metadata.db`  
 **Format:** CSV (Comma-Separated Values) with a header line.
 
@@ -65,6 +68,9 @@ Finally, the OWNER field represented here as **ines:users**.
 
 
 ## 4. Function Descriptions
+This section describes all core functions used by the recycle bin script.  
+Each function contributes to file management, logging, and recovery processes, ensuring traceability and system reliability.
+
 ### 4.1. log_msg
 Takes two arguments — a log level (string) and a message (string) — and appends a formatted entry to the log file. It generates a timestamp automatically.  
 It logs messages with a timestamp and log level (e.g., INFO, ERROR) for auditing and debugging purposes.  
@@ -132,21 +138,24 @@ Takes command-line arguments, validates commands, and dispatches them to appropr
 > **Critical:** Orchestrates the entire script, tying all functions together. Without `main`, the script cannot respond to user input or execute operations.
 ### COMPLETAR COM AS FUNÇÕES OPCIONAIS QUE FALTAM
 
+
 ## 5. Design Decisions and Rationale
+This section explains the key design choices behind the recycle bin script, and the reasoning that guided each decision.  
+Understanding these decisions helps clarify why the system behaves the way it does and highlights the trade-offs considered during development.
 
 | **Design Choice** | **Rationale** |
 |-------------------|---------------|
-| Hidden recycle bin directory (`~/.recycle_bin`) | > **Important:** Mimics real systems (e.g., `.Trash` in Linux desktops) to keep user directories clean. Hiding the directory prevents accidental tampering and reduces clutter in the home folder. |
-| Metadata stored as CSV | > **Rationale:** Using CSV makes the metadata **human-readable**, portable, and easy to parse with standard Unix tools (`awk`, `cut`, etc.). It also allows debugging without specialized software. |
-| Unique ID based on timestamp + PID | > **Critical:** Ensures **zero collision** even if multiple deletions occur simultaneously. Unique IDs are essential for accurate tracking, restoring, and avoiding metadata conflicts. |
-| Separate files/folder for each item | > **Rationale:** Prevents filename conflicts between deleted items. Each file is stored in its own path within the recycle bin, simplifying restoration and reducing the risk of overwriting files with identical names. |
-| Configuration file (`config`) | > **Rationale:** Allows **flexible tuning** of parameters like max size and retention days without changing the script. This makes the system adaptable to different user requirements or system constraints. |
-| Logging system (`log_msg`) | > **Important:** Provides **auditability** and **traceability**, supporting debugging and monitoring. Logging all operations ensures accountability and helps identify issues if something goes wrong. |
-| Interactive prompts (restore, empty) | > **Critical for safety:** Prevents accidental destructive actions by requiring user confirmation, mirroring the behavior of graphical interfaces. Improves user confidence and reduces mistakes. |
-| Portable Bash-only implementation | > **Rationale:** Ensures the script runs on **any Linux environment** without dependencies. This increases portability, maintainability, and ease of deployment, even on minimal systems. |
-| Metadata validation before operations | > **Important:** Validates the integrity of the metadata database before performing any action, preventing corruption or inconsistencies that could break restore or delete operations. |
-| Default retention policy | > **Rationale:** Automatically removes files older than a configurable period, preventing the recycle bin from growing indefinitely and simplifying system maintenance. |
-| Error handling and graceful exit | > **Critical:** All functions handle errors (missing files, permission issues, insufficient space) and provide clear messages to the user, preventing silent failures and ensuring predictable script behavior. |
+| Hidden recycle bin directory (`~/.recycle_bin`) | > Mimics real systems (e.g., `.Trash` in Linux desktops) to keep user directories clean. Hiding the directory prevents accidental tampering and reduces clutter in the home folder. |
+| Metadata stored as CSV | > Using CSV makes the metadata **human-readable**, portable, and easy to parse with standard Unix tools (`awk`, `cut`, etc.). It also allows debugging without specialized software. |
+| Unique ID based on timestamp + PID | > Ensures **zero collision** even if multiple deletions occur simultaneously. Unique IDs are essential for accurate tracking, restoring, and avoiding metadata conflicts. |
+| Separate files/folder for each item | > Prevents filename conflicts between deleted items. Each file is stored in its own path within the recycle bin, simplifying restoration and reducing the risk of overwriting files with identical names. |
+| Configuration file (`config`) | > Allows **flexible tuning** of parameters like max size and retention days without changing the script. This makes the system adaptable to different user requirements or system constraints. |
+| Logging system (`log_msg`) | > Provides **auditability** and **traceability**, supporting debugging and monitoring. Logging all operations ensures accountability and helps identify issues if something goes wrong. |
+| Interactive prompts (restore, empty) | > Prevents accidental destructive actions by requiring user confirmation, mirroring the behavior of graphical interfaces. Improves user confidence and reduces mistakes. |
+| Portable Bash-only implementation | > Ensures the script runs on **any Linux environment** without dependencies. This increases portability, maintainability, and ease of deployment, even on minimal systems. |
+| Metadata validation before operations | > Validates the integrity of the metadata database before performing any action, preventing corruption or inconsistencies that could break restore or delete operations. |
+| Default retention policy | > Automatically removes files older than a configurable period, preventing the recycle bin from growing indefinitely and simplifying system maintenance. |
+| Error handling and graceful exit | > All functions handle errors (missing files, permission issues, insufficient space) and provide clear messages to the user, preventing silent failures and ensuring predictable script behavior. |
 
 
 ## 6. Algorithm Explanations
