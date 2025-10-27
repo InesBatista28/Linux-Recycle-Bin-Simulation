@@ -1,6 +1,6 @@
 # Linux Recycle Bin System
 
-## Author
+## Authors
 Inês Batista, 124877<br>
 Maria Quinteiro, 124996
 

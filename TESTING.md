@@ -1,5 +1,9 @@
-# TESTING.md
+# Linux Recycle Bin Simulator — Testing
 This document describes test cases for the Linux Recycle Bin Simulator.
+
+## Authors
+Inês Batista, 124877<br>
+Maria Quinteiro, 124996
 
 ---
 
