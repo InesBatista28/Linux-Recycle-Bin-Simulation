@@ -747,10 +747,248 @@ display_help() {
 }
 
 
+#################################################
+# Function: show_statistics
+# Description: Displays summary statistics about the Recycle Bin contents
+# Parameters: None
+# Returns: 0
+#################################################
+show_statistics() {
+  initialize_recyclebin
+
+  if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 1 ]; then
+    echo -e "${YELLOW}Recycle Bin is empty.${NC}"
+    return 0
+  fi
+
+  local total_items
+  local total_size
+  total_items=$(($(wc -l < "$METADATA_FILE") - 1))
+  total_size=$(awk -F',' 'NR>1 {sum+=$5} END {print sum}' "$METADATA_FILE")
+
+  echo -e "${YELLOW}=== RECYCLE BIN STATISTICS ===${NC}"
+  echo "Total items: $total_items"
+  echo "Total size used: $(transform_size "$total_size")"
+
+  # Count types
+  local file_count dir_count
+  file_count=$(awk -F',' 'NR>1 && $6=="file" {c++} END {print c+0}' "$METADATA_FILE")
+  dir_count=$(awk -F',' 'NR>1 && $6=="directory" {c++} END {print c+0}' "$METADATA_FILE")
+
+  echo "Files: $file_count"
+  echo "Directories: $dir_count"
+
+  # Oldest and newest deletion
+  local oldest newest
+  oldest=$(awk -F',' 'NR>1 {print $4" "$2}' "$METADATA_FILE" | sort | head -1)
+  newest=$(awk -F',' 'NR>1 {print $4" "$2}' "$METADATA_FILE" | sort | tail -1)
+  echo "Oldest item: ${oldest:-N/A}"
+  echo "Newest item: ${newest:-N/A}"
+
+  # Average file size
+  local avg_size
+  avg_size=$(awk -F',' 'NR>1 {sum+=$5; c++} END {if(c>0) print sum/c; else print 0}' "$METADATA_FILE")
+  echo "Average item size: $(transform_size "${avg_size%.*}")"
+
+  # Space usage percentage (from config MAX_SIZE_MB)
+  local max_bytes
+  max_bytes=$(grep -E '^MAX_SIZE_MB=' "$CONFIG_FILE" | cut -d'=' -f2)
+  max_bytes=$((max_bytes * 1024 * 1024))
+  local percent
+  percent=$(( total_size * 100 / max_bytes ))
+  echo "Recycle Bin usage: $percent% of configured capacity"
+
+  echo -e "${YELLOW}==============================${NC}"
+}
+
+#################################################
+# Function: auto_cleanup
+# Description: Automatically deletes items older than RETENTION_DAYS
+# Parameters: None
+# Returns: 0
+#################################################
+auto_cleanup() {
+  initialize_recyclebin
+
+  # Ler dias de retenção do ficheiro de configuração
+  local retention_days
+  retention_days=$(grep -E '^RETENTION_DAYS=' "$CONFIG_FILE" | cut -d'=' -f2)
+
+  # Se não existir, define 30 dias por defeito
+  if [ -z "$retention_days" ]; then
+    retention_days=30
+  fi
+
+  echo -e "${YELLOW}Running automatic cleanup (retention: ${retention_days} days)...${NC}"
+
+  # Data limite
+  local current_ts cutoff_ts
+  current_ts=$(date +%s)
+  cutoff_ts=$(( current_ts - retention_days * 24 * 60 * 60 ))
+
+  local temp_file deleted_count=0 freed_bytes=0
+  temp_file=$(mktemp)
+
+  # Manter o cabeçalho
+  head -n 1 "$METADATA_FILE" > "$temp_file"
+
+  # Processar cada item
+  tail -n +2 "$METADATA_FILE" | while IFS=',' read -r id name path deleted_date deleted_ts size type; do
+    if [ "$deleted_ts" -lt "$cutoff_ts" ]; then
+      # Item expirado → apagar permanentemente
+      if [ -e "$path" ]; then
+        freed_bytes=$((freed_bytes + size))
+        rm -rf "$path"
+      fi
+      deleted_count=$((deleted_count + 1))
+    else
+      # Ainda dentro do prazo → manter
+      echo "$id,$name,$path,$deleted_date,$deleted_ts,$size,$type" >> "$temp_file"
+    fi
+  done
+
+  mv "$temp_file" "$METADATA_FILE"
+
+  # Mostrar resumo
+  if [ "$deleted_count" -gt 0 ]; then
+    echo -e "${GREEN}Auto-cleanup complete:${NC} $deleted_count items permanently removed."
+    echo "Freed space: $(transform_size "$freed_bytes")"
+  else
+    echo -e "${YELLOW}No items older than ${retention_days} days.${NC}"
+  fi
+
+  log_msg "INFO" "Auto-cleanup removed $deleted_count items, freed $(transform_size "$freed_bytes")"
+  return 0
+}
+
+#################################################
+# Function: check_quota
+# Description: Checks if the Recycle Bin exceeds MAX_SIZE_MB.
+#              Displays a warning or triggers auto-cleanup if full.
+# Parameters: None
+# Returns: 0
+#################################################
+check_quota() {
+  initialize_recyclebin
+
+  # Ler a quota máxima do ficheiro de configuração
+  local max_size_mb
+  max_size_mb=$(grep -E '^MAX_SIZE_MB=' "$CONFIG_FILE" | cut -d'=' -f2)
+
+  # Valor padrão (1 GB) caso não exista
+  if [ -z "$max_size_mb" ]; then
+    max_size_mb=1024
+  fi
+
+  # Converter para bytes
+  local max_bytes=$((max_size_mb * 1024 * 1024))
+
+  # Calcular o espaço atual usado
+  local used_bytes
+  used_bytes=$(awk -F',' 'NR>1 {sum+=$5} END {print sum+0}' "$METADATA_FILE")
+
+  # Calcular percentagem de utilização
+  local percent_used
+  percent_used=$(( used_bytes * 100 / max_bytes ))
+
+  # Mostrar estado
+  echo -e "${YELLOW}Checking Recycle Bin quota...${NC}"
+  echo "Used: $(transform_size "$used_bytes")  /  Max: ${max_size_mb} MB  (${percent_used}%)"
+
+  # Se ultrapassar 100%, emitir alerta e tentar limpeza
+  if [ "$used_bytes" -gt "$max_bytes" ]; then
+    echo -e "${RED}WARNING: Recycle Bin quota exceeded!${NC}"
+    echo "Used space is above configured limit (${max_size_mb} MB)."
+
+    # Opcional: limpeza automática
+    echo -e "${YELLOW}Attempting auto-cleanup to free space...${NC}"
+    auto_cleanup
+
+    # Verificar novamente após limpeza
+    used_bytes=$(awk -F',' 'NR>1 {sum+=$5} END {print sum+0}' "$METADATA_FILE")
+    percent_used=$(( used_bytes * 100 / max_bytes ))
+
+    echo -e "${GREEN}Post-cleanup usage:${NC} $(transform_size "$used_bytes") (${percent_used}%)"
+  elif [ "$percent_used" -ge 90 ]; then
+    echo -e "${YELLOW}WARNING: Recycle Bin is at ${percent_used}% of capacity.${NC}"
+  else
+    echo -e "${GREEN}Recycle Bin usage within limits.${NC}"
+  fi
+
+  log_msg "INFO" "Checked quota: ${percent_used}% used"
+  return 0
+}
+
+#################################################
+# Function: preview_file
+# Description: Displays a preview of a file stored in the Recycle Bin.
+#              For text files, shows the first 10 lines.
+#              For binary files, shows file type info.
+# Parameters: $1 - File ID
+# Returns: 0 if successful, 1 on error
+#################################################
+preview_file() {
+  initialize_recyclebin
+
+  local id="$1"
+
+  if [ -z "$id" ]; then
+    echo -e "${RED}ERROR: No file ID specified.${NC}"
+    log_msg "ERROR" "Attempted to preview with no ID."
+    return 1
+  fi
+
+  # Procurar o ficheiro na base de metadados
+  local line
+  line=$(awk -F',' -v id="$id" 'NR>1 && $1==id {print; exit}' "$METADATA_FILE")
+
+  if [ -z "$line" ]; then
+    echo -e "${RED}ERROR: No entry found for ID '$id'.${NC}"
+    log_msg "ERROR" "Preview failed: ID '$id' not found."
+    return 1
+  fi
+
+  # Extrair informações básicas
+  local original_name type
+  original_name=$(echo "$line" | cut -d',' -f2)
+  type=$(echo "$line" | cut -d',' -f6)
+
+  local stored_file="$FILES_DIR/$id"
+
+  # Confirmar que o ficheiro ainda existe
+  if [ ! -e "$stored_file" ]; then
+    echo -e "${RED}ERROR: File not found in Recycle Bin storage (${stored_file}).${NC}"
+    log_msg "ERROR" "Missing file for ID $id."
+    return 1
+  fi
+
+  echo -e "${YELLOW}Preview of '$original_name' (ID: $id):${NC}"
+
+  # Verificar tipo de ficheiro
+  local filetype
+  filetype=$(file -b "$stored_file")
+
+  if [[ "$filetype" == *"text"* ]]; then
+    echo -e "${GREEN}File type:${NC} $filetype"
+    echo "----------------------------------------"
+    head -n 10 "$stored_file" 2>/dev/null
+    echo "----------------------------------------"
+    echo -e "${YELLOW}(Showing first 10 lines)${NC}"
+  else
+    echo -e "${YELLOW}Binary or non-text file detected.${NC}"
+    echo -e "${GREEN}File type:${NC} $filetype"
+    echo "Use 'restore' command to recover and open it normally."
+  fi
+
+  log_msg "INFO" "Previewed file ID $id ($original_name, $filetype)"
+  return 0
+}
+
 
 #################################################
 # Function: main
-# Description: Command dispatcher that calls appropriate functions based on user input
+# Description: Command dispatcher for all Recycle Bin operations
+# Now includes 'stats' command for show_statistics()
 #################################################
 main() {
     # Check if at least one argument is provided
@@ -760,25 +998,26 @@ main() {
         exit 1
     fi
 
-    # Extract the first argument as the command
     local command="$1"
-    shift  # Remove the command from the argument list
+    shift  # Remove the command from the arguments list
 
     case "$command" in
         help|-h|--help)
             display_help
             ;;
+
         delete)
-          if [ $# -eq 0 ] || [ "$1" == "--help" ]; then
-            echo -e "${YELLOW}Usage: ./recycle_bin.sh delete <file/dir> [...]${NC}"
-            exit 0
-          fi
-          delete_file "$@"
-          ;;
+            if [ $# -eq 0 ] || [ "$1" == "--help" ]; then
+                echo -e "${YELLOW}Usage: ./recycle_bin.sh delete <file/dir> [...]${NC}"
+                exit 0
+            fi
+            delete_file "$@"
+            ;;
 
         list)
             list_recycled "$@"
             ;;
+
         restore)
             if [ $# -lt 1 ]; then
                 echo -e "${RED}ERROR: No ID or filename specified to restore.${NC}"
@@ -786,6 +1025,7 @@ main() {
             fi
             restore_file "$1"
             ;;
+
         search)
             if [ $# -lt 1 ]; then
                 echo -e "${RED}ERROR: No search pattern specified.${NC}"
@@ -793,14 +1033,37 @@ main() {
             fi
             search_recycled "$@"
             ;;
+
         empty)
             empty_recyclebin "$@"
             ;;
+
+        stats|statistics)
+            show_statistics
+            ;;
+        
+        cleanup|auto-cleanup)
+            auto_cleanup
+            ;;           
+            
+        quota|check-quota)
+            check_quota
+            ;;
+
+        preview)
+            if [ $# -lt 1 ]; then
+                echo -e "${RED}ERROR: No file ID specified to preview.${NC}"
+                exit 1
+            fi
+            preview_file "$1"
+            ;;
+
         *)
             echo -e "${RED}ERROR: Unknown command: $command${NC}"
             echo "Use './recycle_bin.sh help' to see available commands."
             exit 1
             ;;
+
     esac
 }
 
