@@ -47,15 +47,15 @@ Maria Quinteiro, 124996
 ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER
 1698324850000000,mydoc.txt,/home/ines/docs/mydoc.txt,2025-10-27 15:12:45,1048576,file,644,ines:users
 ```
-The ID value (1698324850000000) is a unique identifier generated from the timestamp in nanoseconds combined with the process ID that performed the deletion.
-The ORIGINAL_NAME field stores the original name of the file — in this case, mydoc.txt — while ORIGINAL_PATH records the full absolute path to where the file was located before being moved to the recycle bin: /home/ines/docs/mydoc.txt.
+The unique ID value is ```1698324850000000```.
+The ORIGINAL_NAME field stores the original name of the file — in this case, ```mydoc.txt``` — while ORIGINAL_PATH records the full absolute path to where the file was located before being moved to the recycle bin: ```/home/ines/docs/mydoc.txt```.
 
-The date and time of deletion are recorded in DELETION_DATE as 2025-10-27 15:12:45, allowing precise tracking of when the file was removed.
-The file’s size is stored in FILE_SIZE, which in this example is 1048576 bytes.
-The FILE_TYPE field specifies the type of the deleted item — here, file, meaning it is a regular file rather than a directory.
+The date and time of deletion are recorded as ```2025-10-27 15:12:45```, allowing precise tracking of when the file was removed.
+The file’s size is stored in FILE_SIZE, which in this example is ```1048576``` bytes.
+The FILE_TYPE field specifies the type of the deleted item — here, ```file```, meaning it is a regular file rather than a directory.
 
-The file’s original Unix permissions are preserved in the PERMISSIONS field, with a value of 644, corresponding to access rights rw-r--r--.
-Finally, the OWNER field represented here as ines:users.
+The file’s original Unix permissions are preserved, with a value of ```644```, corresponding to access rights rw-r--r--.
+Finally, the OWNER field represented here as ```ines:users```.
 
 **Notes:**
 * The header row is always preserved when cleaning or recreating metadata.db.
