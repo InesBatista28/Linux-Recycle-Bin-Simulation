@@ -35,11 +35,11 @@ Maria Quinteiro, 124996
 | 1 | ID | Unique identifier composed of the timestamp (in nanoseconds) and process ID. |
 | 2 | `ORIGINAL_NAME` | The file’s original name before deletion. |
 | 3 | ORIGINAL_PATH | The absolute path to the file before deletion. |
-| 4 | DELETION_DATE | Date and time when the file was moved to the Recycle Bin. |
-| 5 | `FILE_SIZE` | Size of the file in bytes. |
-| 6 | FILE_TYPE | Type of the deleted item — either `file` or `directory`. |
-| 7 | `PERMISSIONS` | Original Unix permissions (e.g., `644` or `755`). |
-| 8 | OWNER | Owner of the file in the format `user:group`. |
+| 4 | `DELETION_DATE` | Date and time when the file was moved to the Recycle Bin. |
+| 5 | FILE_SIZE | Size of the file in bytes. |
+| 6 | `FILE_TYPE` | Type of the deleted item — either `file` or `directory`. |
+| 7 | PERMISSIONS | Original Unix permissions (e.g., `644` or `755`). |
+| 8 | `OWNER` | Owner of the file in the format `user:group`. |
 
 
 **Example Entry:**
@@ -47,15 +47,15 @@ Maria Quinteiro, 124996
 ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER
 1698324850000000,mydoc.txt,/home/ines/docs/mydoc.txt,2025-10-27 15:12:45,1048576,file,644,ines:users
 ```
-The unique ID value is ```1698324850000000```.
-The ORIGINAL_NAME field stores the original name of the file — in this case, ```mydoc.txt``` — while ORIGINAL_PATH records the full absolute path to where the file was located before being moved to the recycle bin: ```/home/ines/docs/mydoc.txt```.
+The unique ID value is **1698324850000000**.
+The ORIGINAL_NAME field stores the original name of the file — in this case, **mydoc.txt** — while ORIGINAL_PATH records the full absolute path to where the file was located before being moved to the recycle bin: **/home/ines/docs/mydoc.txt**.
 
-The date and time of deletion are recorded as ```2025-10-27 15:12:45```, allowing precise tracking of when the file was removed.
-The file’s size is stored in FILE_SIZE, which in this example is ```1048576``` bytes.
-The FILE_TYPE field specifies the type of the deleted item — here, ```file```, meaning it is a regular file rather than a directory.
+The date and time of deletion are recorded as **2025-10-27 15:12:45**, allowing precise tracking of when the file was removed.
+The file’s size is stored in FILE_SIZE, which in this example is **1048576** bytes.
+The FILE_TYPE field specifies the type of the deleted item — here, **file**, meaning it is a regular file rather than a directory.
 
-The file’s original Unix permissions are preserved, with a value of ```644```, corresponding to access rights rw-r--r--.
-Finally, the OWNER field represented here as ```ines:users```.
+The file’s original Unix permissions are preserved, with a value of **644**, corresponding to access rights rw-r--r--.
+Finally, the OWNER field represented here as **ines:users**.
 
 **Notes:**
 * The header row is always preserved when cleaning or recreating metadata.db.
@@ -73,7 +73,7 @@ It logs messages with a timestamp and log level (e.g., INFO, ERROR) for auditing
 
 ### 4.2. initialize_recyclebin
 Sets up the necessary directories, files, and default configurations for the recycle bin system if they do not already exist.  
-It checks and creates the main recycle bin directory, a subdirectory for files, the metadata database (with headers, see **Section 3: Metadata Schema**), a default config file, and an empty log file.  
+It checks and creates the main recycle bin directory, a subdirectory for files, the metadata database (with headers, see **3. Metadata Schema**), a default config file, and an empty log file.  
 
 > **Critical:** This is the foundational setup function. It ensures the recycle bin infrastructure is ready before any operations. Without it, the script could not store or manage files safely, and functions like delete, list, and restore would fail.
 
@@ -94,7 +94,7 @@ Converts a byte value into a human-readable format (B, KB, MB, etc.), e.g., "512
 
 ### 4.6. delete_file
 Accepts one or more file or directory paths as arguments.  
-It validates existence, permissions, recycle bin limits, and disk space; generates metadata (ID, name, path, etc., see **Section 3: Metadata Schema**); and moves items to the recycle bin. Handles errors like non-existent files, full bin, or permission issues, and logs them.  
+It validates existence, permissions, recycle bin limits, and disk space; generates metadata (ID, name, path, etc., see **3. Metadata Schema**); and moves items to the recycle bin. Handles errors like non-existent files, full bin, or permission issues, and logs them.  
 
 > **Warning:** This is the core delete operation, central to the recycle bin’s purpose. It integrates initialization, ID generation, space checks, and logging to safely move items. Other functions like `list_recycled`, `restore_file`, and `search_recycled` depend on the metadata it creates, making it indispensable.
 
@@ -130,9 +130,23 @@ Prints comprehensive help information, including usage, commands, options, examp
 Takes command-line arguments, validates commands, and dispatches them to appropriate functions like `delete_file` or `display_help`. Handles unknown commands or missing arguments gracefully.  
 
 > **Critical:** Orchestrates the entire script, tying all functions together. Without `main`, the script cannot respond to user input or execute operations.
-
+### COMPLETAR COM AS FUNÇÕES OPCIONAIS QUE FALTAM
 
 ## 5. Design Decisions and Rationale
+
+| **Design Choice** | **Rationale** |
+|-------------------|---------------|
+| Hidden recycle bin directory (`~/.recycle_bin`) | > **Important:** Mimics real systems (e.g., `.Trash` in Linux desktops) to keep user directories clean. Hiding the directory prevents accidental tampering and reduces clutter in the home folder. |
+| Metadata stored as CSV | > **Rationale:** Using CSV makes the metadata **human-readable**, portable, and easy to parse with standard Unix tools (`awk`, `cut`, etc.). It also allows debugging without specialized software. |
+| Unique ID based on timestamp + PID | > **Critical:** Ensures **zero collision** even if multiple deletions occur simultaneously. Unique IDs are essential for accurate tracking, restoring, and avoiding metadata conflicts. |
+| Separate files/folder for each item | > **Rationale:** Prevents filename conflicts between deleted items. Each file is stored in its own path within the recycle bin, simplifying restoration and reducing the risk of overwriting files with identical names. |
+| Configuration file (`config`) | > **Rationale:** Allows **flexible tuning** of parameters like max size and retention days without changing the script. This makes the system adaptable to different user requirements or system constraints. |
+| Logging system (`log_msg`) | > **Important:** Provides **auditability** and **traceability**, supporting debugging and monitoring. Logging all operations ensures accountability and helps identify issues if something goes wrong. |
+| Interactive prompts (restore, empty) | > **Critical for safety:** Prevents accidental destructive actions by requiring user confirmation, mirroring the behavior of graphical interfaces. Improves user confidence and reduces mistakes. |
+| Portable Bash-only implementation | > **Rationale:** Ensures the script runs on **any Linux environment** without dependencies. This increases portability, maintainability, and ease of deployment, even on minimal systems. |
+| Metadata validation before operations | > **Important:** Validates the integrity of the metadata database before performing any action, preventing corruption or inconsistencies that could break restore or delete operations. |
+| Default retention policy | > **Rationale:** Automatically removes files older than a configurable period, preventing the recycle bin from growing indefinitely and simplifying system maintenance. |
+| Error handling and graceful exit | > **Critical:** All functions handle errors (missing files, permission issues, insufficient space) and provide clear messages to the user, preventing silent failures and ensuring predictable script behavior. |
 
 
 ## 6. Algorithm Explanations
