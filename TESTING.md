@@ -1,4 +1,4 @@
-# Linux Recycle Bin Simulator — Testing
+# Linux Recycle Bin System — Testing
 This document describes test cases for the Linux Recycle Bin Simulator.
 
 ## Authors
@@ -159,5 +159,203 @@ Maria Quinteiro, 124996
 **Screenshots:**
 ![List Recycle Bin Content Screenshot](screenshots/list_recycle_bin.png)
 
+---
 
+A PARTIR DAQUI AINDA NÃO TEMOS SCREESHOTS 
+### Test Case 7: Restore File by ID
 
+**Objective:** Verify file restoration using its ID
+
+**Steps:**
+1. Delete a file
+2. Get its ID from ./recycle_bin.sh list
+3. Run: `./recycle_bin.sh restore <ID>`
+
+**Expected Result:**
+- File restored to original location
+- Metadata entry removed
+- Permissions and owner restored
+
+**Actual Result:**
+- File restored successfully
+- 'File '<name>' restored successfully to '<path>' printed in green
+- Metadata entry removed from metadata.db
+- Original permissions and owner set
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:** 
+![Restore File by ID](screenshots/retore_file_id.png)
+
+---
+
+### Test Case 8: Restore FIle with Name Conflict
+
+**Objective:** Test conflict  handling when restoring to a location with already existing file
+
+**Steps:**
+1. Delete a file
+2. Create a file with the same name as the deleted one at itś otiginal location
+3. Run: `./recycle_bin.sh restore <ID>`
+4. Test options: overwrite, restore with timestamp, cancel   ????
+
+**Expected Result:**
+- Overwrite replaces file
+- Timestamp restores with modified name
+- Cancel leaves file in recycle bin
+
+**Actual Result:**
+- Conflict message shown in yellow
+- Prompt allows [O/R/C] choice
+- Behavior corresponds to user selection: overwrite, append timestamp, or cancel
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:**
+![Restore File with Name Conflicts](screenshots/name_conflits.png)
+
+---
+
+### Test Case 9: Search Recycle Bin
+
+**Objective:** Search by filename or path, case-sensitive and case-insensitive
+
+**Steps:**
+1. Delete multiple files
+2. Run: `./recycle_bin.sh search '*.txt'`
+3. Run: `./recycle_bin.sh search '*.TXT' -i`
+
+**Expected Result:**
+- Matching items displayed in table
+- Correct total matches
+
+**Actual Result:**
+- Table with ID, name, date, size printed
+- Total matches shown
+- Case-insensitive works correctly with -i
+- Log entry created
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:**
+![Search Recycle Bin](screenshots/search_recycle_bin.png)
+
+---
+
+### Test Case 10: Empty Recycle Bin (All Items)
+
+**Objective:** Permanently delete all items
+
+**Steps:**
+1. Delete multiple files
+2. Run: `./recycle_bin.sh empty --force`
+3. Verify `~/.recycle_bin/files/` is empty
+4. Verify metadata cleared
+
+**Expected Result:**
+- Items permanently deleted
+- Metadata reset
+- Log entry created
+
+**Actual Result:**
+- All files removed from files/
+- Metadata reset to header only
+- Green message "All X items permanently deleted"
+- Log updated
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:** [If applicable]
+
+---
+
+### Test Case 11: Empty Recycle Bin (Single Item)
+
+**Objective:** Delete a specific item by ID
+
+**Steps:**
+1. Delete a file
+2. Get its ID
+3. Run: `./recycle_bin.sh empty <ID>`
+4. Verify only that file removed
+
+**Expected Result:**
+- Selected file permanently deleted
+- Metadata updated
+- Other items unaffected
+
+**Actual Result:**
+- Item removed from files/
+- Metadata entry removed
+- Confirmation prompt respected if no --force
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:** [If applicable]
+
+---
+
+### Test Case 12: Recycle Bin Size Limit
+
+**Objective:** Verify deletion fails if recycle bin exceeds MAX_SIZE_MB
+
+**Steps:**
+1. Set MAX_SIZE_MB=1 in config
+2. Try to delete a file larger than 1MB
+
+**Expected Result:**
+- Error message displayed
+- File not moved
+
+**Actual Result:**
+- "ERROR: Recycle Bin limit exceeded (1MB). Cannot move '<file>'" in red
+- Log entry created
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:** [If applicable]
+
+---
+
+### Test Case 13: Permissions Handling
+
+**Objective:** Verify deletion fails if file has no read/write permissions
+
+**Steps:**
+1. Create a file and remove read/write permissions: chmod 000 file.txt
+2. Run: `./recycle_bin.sh delete file.txt`
+
+**Expected Result:**
+- Error message about permissions
+- File remains in original location
+
+**Actual Result:**
+- "ERROR: No permission to delete 'file.txt'." printed in red
+- Log entry created
+- File remains untouched
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:** [If applicable]
+
+---
+
+### Test Case 14: Invalid Commands
+
+**Objective:** Ensure unknown commands produce error messages
+
+**Steps:**
+Run: `./recycle_bin.sh unknown`
+
+**Expected Result:**
+- Error about unknown command
+- Suggest using help
+
+**Actual Result:**
+- "ERROR: Unknown command: unknown" printed in red
+- "Use './recycle_bin.sh help' to see available commands." printed
+- Exit code 1
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:** [If applicable]

@@ -1,4 +1,4 @@
-# Linux Recycle Bin Simulator — Technical Documentation
+# Linux Recycle Bin System — Technical Documentation
 This project implements a Linux Recycle Bin Simulator using pure Bash scripting.
 It replicates the behavior of a recycle bin, allowing users to delete, restore, search, list, and empty files or directories without permanent loss until explicitly emptied.
 
