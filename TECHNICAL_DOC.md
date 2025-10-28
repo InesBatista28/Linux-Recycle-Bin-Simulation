@@ -75,68 +75,114 @@ Each function contributes to file management, logging, and recovery processes, e
 Takes two arguments — a log level (string) and a message (string) — and appends a formatted entry to the log file. It generates a timestamp automatically.  
 It logs messages with a timestamp and log level (e.g., INFO, ERROR) for auditing and debugging purposes.  
 
-> **Important:** This function is crucial for traceability and error tracking across the entire script. All operations — deletions, restorations, errors, and warnings — are recorded here. Other functions call `log_msg` to log their outcomes, making it the backbone of reliability in the system.
+> This function is crucial for traceability and error tracking across the entire script. All operations — deletions, restorations, errors, and warnings — are recorded here. Other functions call `log_msg` to log their outcomes, making it the backbone of reliability in the system.
 
 ### 4.2. initialize_recyclebin
 Sets up the necessary directories, files, and default configurations for the recycle bin system if they do not already exist.  
 It checks and creates the main recycle bin directory, a subdirectory for files, the metadata database (with headers, see **3. Metadata Schema**), a default config file, and an empty log file.  
 
-> **Critical:** This is the foundational setup function. It ensures the recycle bin infrastructure is ready before any operations. Without it, the script could not store or manage files safely, and functions like delete, list, and restore would fail.
+> This is the foundational setup function. It ensures the recycle bin infrastructure is ready before any operations. Without it, the script could not store or manage files safely, and functions like delete, list, and restore would fail.
 
 ### 4.3. generate_id
 Generates a unique identifier for each deleted item using a combination of timestamp and process ID.  
 
-> **Important:** Unique IDs are critical for tracking individual files in the metadata database and storage directory. They are used during deletion and later referenced by listing, restoring, searching, and emptying operations. Without unique IDs, the system cannot reliably distinguish between items, risking data loss.
+> Unique IDs are critical for tracking individual files in the metadata database and storage directory. They are used during deletion and later referenced by listing, restoring, searching, and emptying operations. Without unique IDs, the system cannot reliably distinguish between items, risking data loss.
 
 ### 4.4. bytes_available
 Uses `df` to query disk space for the recycle bin directory, returning the available space in bytes (or 0 if the command fails).  
 
-> **Note:** This function prevents disk overflow during deletions and restorations. It is called by `delete_file` and `restore_file` to ensure operations do not exceed available disk space, promoting system stability.
+> This function prevents disk overflow during deletions and restorations. It is called by `delete_file` and `restore_file` to ensure operations do not exceed available disk space, promoting system stability.
 
 ### 4.5. transform_size
 Converts a byte value into a human-readable format (B, KB, MB, etc.), e.g., "512MB".  
 
-> **Important:** This improves usability in user-facing displays such as `list_recycled` and `search_recycled`. It is called whenever sizes need to be presented, ensuring consistent and intuitive formatting across the script.
+> This improves usability in user-facing displays such as `list_recycled` and `search_recycled`. It is called whenever sizes need to be presented, ensuring consistent and intuitive formatting across the script.
 
 ### 4.6. delete_file
 Accepts one or more file or directory paths as arguments.  
 It validates existence, permissions, recycle bin limits, and disk space; generates metadata (ID, name, path, etc., see **3. Metadata Schema**); and moves items to the recycle bin. Handles errors like non-existent files, full bin, or permission issues, and logs them.  
 
-> **Warning:** This is the core delete operation, central to the recycle bin’s purpose. It integrates initialization, ID generation, space checks, and logging to safely move items. Other functions like `list_recycled`, `restore_file`, and `search_recycled` depend on the metadata it creates, making it indispensable.
+> This is the core delete operation, central to the recycle bin’s purpose. It integrates initialization, ID generation, space checks, and logging to safely move items. Other functions like `list_recycled`, `restore_file`, and `search_recycled` depend on the metadata it creates, making it indispensable.
 
 ### 4.7. list_recycled
 Displays the contents of the recycle bin in two modes:  
 - **Normal table mode:** shows key details (ID, name, date, size, type).  
 - **Detailed mode (`--detailed`):** shows all metadata fields for each item, including totals for items and space used.  
 
-> **Important:** Provides visibility into deleted items, enabling users to browse and make informed decisions. It relies on metadata from `delete_file`, uses `transform_size` for clarity, and integrates with `initialize_recyclebin`. The distinction between modes improves usability, offering quick overviews or detailed inspection.
+> Provides visibility into deleted items, enabling users to browse and make informed decisions. It relies on metadata from `delete_file`, uses `transform_size` for clarity, and integrates with `initialize_recyclebin`. The distinction between modes improves usability, offering quick overviews or detailed inspection.
 
 ### 4.8. restore_file
 Takes an ID or filename, locates it in metadata, checks for conflicts, prompts for resolution (overwrite, rename, cancel), verifies space, moves the item back, restores permissions and ownership, and updates metadata. Handles directories recursively and errors like missing files.  
 
-> **Critical:** This function reverses deletions, making the recycle bin fully recoverable. Without it, deleted files are permanently lost. Depends on metadata from `delete_file`, space checks from `bytes_available`, and logging.
+> This function reverses deletions, making the recycle bin fully recoverable. Without it, deleted files are permanently lost. Depends on metadata from `delete_file`, space checks from `bytes_available`, and logging.
 
 ### 4.9. search_recycled
 Searches the recycle bin for items matching a pattern in name or path.  
 Supports optional case-insensitivity and formats output similarly to `list_recycled`. Handles no matches gracefully.  
 
-> **Important:** Enables efficient querying of large recycle bins. Relies on metadata and `transform_size` for display. Complements listing and restoration by helping users locate items quickly.
+> Enables efficient querying of large recycle bins. Relies on metadata and `transform_size` for display. Complements listing and restoration by helping users locate items quickly.
 
 ### 4.10. empty_recyclebin
 Permanently deletes items from the recycle bin, either all or by specific ID, with confirmation prompts unless forced.  
 
-> **Danger:** This operation cannot be undone. It integrates with metadata management and logging. Users should verify contents with `list_recycled` before executing.
+> This operation cannot be undone. It integrates with metadata management and logging. Users should verify contents with `list_recycled` before executing.
 
 ### 4.11. display_help
 Prints comprehensive help information, including usage, commands, options, examples, and configuration details.  
 
-> **Helpful:** Acts as the built-in user guide. Essential for accessibility, ensuring users can operate the script without external documentation.
+> Acts as the built-in user guide. Essential for accessibility, ensuring users can operate the script without external documentation.
 
-### 4.12. main
-Takes command-line arguments, validates commands, and dispatches them to appropriate functions like `delete_file` or `display_help`. Handles unknown commands or missing arguments gracefully.  
+### 4.12. empty_recyclebin
+This function permanently deletes items from the recycle bin, either all or by a specific ID, ensuring complete cleanup when necessary.  
+Before execution, it requests confirmation to avoid accidental data loss, unless the `--force` flag is provided, which allows non-interactive or automated cleanups.  
+When called without arguments, it empties the entire bin; when provided with an item ID, it removes only that specific entry, updating both the filesystem and the metadata database.  
+It logs all operations for auditability and maintains system integrity by verifying that the recycle bin is initialized before deletion.
 
-> **Critical:** Orchestrates the entire script, tying all functions together. Without `main`, the script cannot respond to user input or execute operations.
-### COMPLETAR COM AS FUNÇÕES OPCIONAIS QUE FALTAM
+> This function provides irreversible cleanup operations, making it essential for safe and controlled space management.
+
+### 4.13. display_help
+This function prints a comprehensive help guide that lists all available commands, options, and their usage examples.  
+It details configuration parameters, command syntax, and expected behavior, ensuring users can operate the recycle bin system confidently without external documentation.  
+This built-in help system makes the script self-documenting and accessible for both beginners and advanced users, acting as a quick reference tool directly from the command line.
+
+> This function ensures accessibility and self-documentation by serving as the integrated manual of the recycle bin system.
+
+### 4.14. show_statistics
+This function displays summarized statistics about the recycle bin’s current state, providing an overview of total items, total space used, number of files and directories, and capacity utilization.  
+It may also include the oldest and most recent deletions, giving insight into storage patterns and cleanup needs.  
+By converting raw byte data into readable formats and combining totals from metadata, it allows users or administrators to monitor usage and plan maintenance proactively.
+
+> This function delivers a clear, data-driven view of the recycle bin’s condition, supporting informed maintenance decisions.
+
+### 4.15. auto_cleanup
+This function automatically removes files that exceed the configured retention period (`RETENTION_DAYS`), ensuring the recycle bin doesn’t grow uncontrollably over time.  
+It reads the policy from the configuration file, checks each entry in the metadata database, and deletes expired items, updating logs and metadata accordingly.  
+This automation promotes efficiency and prevents manual intervention, especially in systems that handle frequent deletions or have limited disk space.
+
+> This function enforces retention policies, maintaining stability and efficiency through automated cleanup.
+
+### 4.16. check_quota
+This function checks the recycle bin’s total disk usage against the configured quota (`MAX_SIZE_MB`) to ensure it doesn’t exceed its storage limit.  
+It calculates the total occupied space, compares it to the defined threshold, and warns the user when capacity is close to full.  
+If necessary, it can trigger the `auto_cleanup` process to free space automatically, preventing failures in future deletion or restoration operations.
+
+> This function protects system stability by preventing disk overuse and ensuring automatic compliance with configured limits.
+
+### 4.15. preview_file
+This function allows users to preview the contents of a deleted file before restoring it, reducing the risk of restoring unwanted items.  
+It accepts a file ID, verifies that the file exists in the recycle bin, and determines its type.  
+For text files, it shows the first few lines, while for binary files, it simply reports the file type.  
+Each preview attempt is logged for accountability and traceability.
+
+> This function enhances usability and safety by letting users confirm a file’s identity before restoration.
+
+### 4.16. main
+This function serves as the core entry point and orchestrator of the entire recycle bin system.  
+It parses command-line arguments, validates commands, and calls the corresponding function (e.g., `delete_file`, `list_recycled`, `restore_file`, etc.).  
+The `main` function ensures structured execution flow, consistent user feedback, and error handling for invalid or incomplete commands.  
+It also displays help information when needed, acting as the script’s command dispatcher and control hub.
+
+> This function unifies all operations, acting as the central command dispatcher that coordinates every part of the system.
 
 
 ## 5. Design Decisions and Rationale

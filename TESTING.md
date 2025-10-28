@@ -92,7 +92,6 @@ Maria Quinteiro, 124996
    echo "a" > file1.txt
    echo "b" > file2.txt
    mkdir folder1
-   ´´´
 2. Run: `./recycle_bin.sh delete file1.txt file2.txt folder1`  
 3. Verify items are removed from original locations 
 4. Run: `./recycle_bin.sh list`  
@@ -136,5 +135,29 @@ Maria Quinteiro, 124996
 ![Delete Nonexistent File Screenshot](screenshots/nonexistent_file.png)
 
 ---
+
+### Test Case 6: List Recycle Bin Contents
+
+**Objective:** Verify listing of recycle bin items
+
+**Steps:**
+1. Delete a test file
+2. Run: `./recycle_bin.sh list`
+3. Run: `./recycle_bin.sh list --detailed`
+
+**Expected Result:**
+- Normal list shows ID, filename, deletion date, size
+- Detailed list shows path, permissions, owner, type
+
+**Actual Result:**
+- List prints table with ID, name, date, size
+- List --detailed prints full metadata with colors for labels
+- Total items and total size shown
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:**
+![List Recycle Bin Content Screenshot](screenshots/list_recycle_bin.png)
+
 
 
