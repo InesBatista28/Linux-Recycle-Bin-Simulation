@@ -47,10 +47,30 @@ Available Commands:
 * Logging of all operations for auditing purposes.
 * Configuration file for maximum recycle bin size (MAX_SIZE_MB) and retention days (RETENTION_DAYS).
 
-Optional features implemented:
-* Detailed listing mode.
-* Force deletion without confirmation.
-* Automatic directory creation during restore if the original path no longer exists.
+**Optional Features Implemented:**
+* **Statistics Dashboard**
+  - Display total number of items in recycle bin  
+  - Show total storage used with quota percentage  
+  - Break down by file type (files vs directories)  
+  - Show oldest and newest items  
+  - Display average file size  
+
+* **Auto-Cleanup** 
+  - Automatically delete items older than RETENTION_DAYS
+  - Read retention period from config file  
+  - Provide cleanup summary  
+  - Can be run manually or integrated into delete operation  
+
+* **Quota Management**
+  - Check if recycle bin exceeds MAX_SIZE_MB 
+  - Display warning when quota exceeded  
+  - Optionally trigger auto-cleanup when full  
+
+* **File Preview** 
+  - Show first 10 lines for text files  
+  - Display file type information for binary files  
+  - Accept file ID as parameter
+
 
 ## Configuration
 The configuration file is located at:

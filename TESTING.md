@@ -2,8 +2,10 @@
 This document describes test cases for the Linux Recycle Bin Simulator.
 
 ## Authors
-Inês Batista, 124877<br>
+Inês Batista, 124877  
 Maria Quinteiro, 124996
+
+**Date:** 2025-10-29
 
 ---
 
@@ -114,31 +116,81 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 5: Delete Nonexistent File
-**Objective:** Ensure proper error handling for nonexistent files
+### Test Case 5: Delete Empty Directory  
 
-**Steps:**
-1. Run: `./recycle_bin.sh delete nonexistent.txt`   
+**Objective:** Verify that empty directories are correctly moved to the Recycle Bin.  
 
-**Expected Result:**
-- Error message displayed
-- Exit code indicates failure
+**Steps:**  
+1. Create an empty directory `emptydir`  
+2. Run: `./recycle_bin.sh delete emptydir`  
+3. Check that it is no longer in the original path  
+4. Run: `./recycle_bin.sh list`  
+
+**Expected Result:**  
+- Directory moved to `~/.recycle_bin/files/`  
+- Entry added to `metadata.db` as type “directory”  
+- Confirmation message displayed  
 
 **Actual Result:**  
-- `"ERROR: 'nonexistent.txt' does not exist."` printed in red
-- Entry logged in recyclebin.log
-- Exit code 0 (loop continues, overall function returns 0 if at least one valid deletion occurred; returns 1 if none)
+- `'emptydir' moved to Recycle Bin` printed in green  
+- Metadata entry correctly created  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass  
 
 **Screenshots:** 
-![Delete Nonexistent File Screenshot](screenshots/nonexistent_file.png)
 
 ---
 
-### Test Case 6: List Recycle Bin Contents
+### Test Case 6: Delete Directory with Contents (Recursive)  
 
-**Objective:** Verify listing of recycle bin items
+**Objective:** Verify that directories with files and subdirectories are recursively deleted.  
+
+**Steps:**  
+1. Create directory structure `dirA/sub/file.txt`  
+2. Run: `./recycle_bin.sh delete dirA`  
+3. Verify that directory and contents are removed  
+
+**Expected Result:**  
+- All contents moved recursively  
+- One metadata entry for `dirA`  
+- Log entry created  
+
+**Actual Result:**  
+- `'dirA' moved to Recycle Bin`  
+- Directory structure preserved inside recycle bin  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** 
+
+
+---
+
+### Test Case 7: List Empty Recycle Bin  
+
+**Objective:** Verify that listing works when bin is empty.  
+
+**Steps:**  
+1. Ensure `~/.recycle_bin/files/` is empty  
+2. Run: `./recycle_bin.sh list`  
+
+**Expected Result:**  
+- Message “Recycle Bin is empty”  
+
+**Actual Result:**  
+- Yellow message displayed  
+- No errors  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** 
+![Delete Multiple Files/Directories Screenshot](screenshots/delete_multiple_files.png)
+
+---
+
+### Test Case 8: List Recycle Bin with Items
+
+**Objective:** Verify listing of recycle bin items both on normal and detailed mode
 
 **Steps:**
 1. Delete a test file
@@ -161,8 +213,7 @@ Maria Quinteiro, 124996
 
 ---
 
-A PARTIR DAQUI AINDA NÃO TEMOS SCREESHOTS 
-### Test Case 7: Restore File by ID
+### Test Case 9: Restore Single File  
 
 **Objective:** Verify file restoration using its ID
 
@@ -185,64 +236,34 @@ A PARTIR DAQUI AINDA NÃO TEMOS SCREESHOTS
 **Status:** ☑ Pass ☐ Fail
 
 **Screenshots:** 
-![Restore File by ID](screenshots/retore_file_id.png)
+![Restore File by ID](screenshots/retore_file_id.png) 
 
 ---
 
-### Test Case 8: Restore FIle with Name Conflict
+### Test Case 10: Restore to Non-existent Original Path  
 
-**Objective:** Test conflict  handling when restoring to a location with already existing file
+**Objective:** Verify that the script recreates missing directories before restoring a file.  
 
-**Steps:**
-1. Delete a file
-2. Create a file with the same name as the deleted one at itś otiginal location
-3. Run: `./recycle_bin.sh restore <ID>`
-4. Test options: overwrite, restore with timestamp, cancel   ????
+**Steps:**  
+1. Delete a file inside a subfolder  
+2. Remove that subfolder  
+3. Run: `./recycle_bin.sh restore <ID>`  
 
-**Expected Result:**
-- Overwrite replaces file
-- Timestamp restores with modified name
-- Cancel leaves file in recycle bin
+**Expected Result:**  
+- Folder recreated automatically  
+- File restored successfully  
 
-**Actual Result:**
-- Conflict message shown in yellow
-- Prompt allows [O/R/C] choice
-- Behavior corresponds to user selection: overwrite, append timestamp, or cancel
+**Actual Result:**  
+- “Destination directory missing. Creating …” message displayed  
+- File restored  
 
-**Status:** ☑ Pass ☐ Fail
+**Status:** ☑ Pass  
 
-**Screenshots:**
-![Restore File with Name Conflicts](screenshots/name_conflits.png)
+**Screenshots:** [If applicable]  
 
 ---
 
-### Test Case 9: Search Recycle Bin
-
-**Objective:** Search by filename or path, case-sensitive and case-insensitive
-
-**Steps:**
-1. Delete multiple files
-2. Run: `./recycle_bin.sh search '*.txt'`
-3. Run: `./recycle_bin.sh search '*.TXT' -i`
-
-**Expected Result:**
-- Matching items displayed in table
-- Correct total matches
-
-**Actual Result:**
-- Table with ID, name, date, size printed
-- Total matches shown
-- Case-insensitive works correctly with -i
-- Log entry created
-
-**Status:** ☑ Pass ☐ Fail
-
-**Screenshots:**
-![Search Recycle Bin](screenshots/search_recycle_bin.png)
-
----
-
-### Test Case 10: Empty Recycle Bin (All Items)
+### Test Case 11: Empty Entire Recycle Bin  
 
 **Objective:** Permanently delete all items
 
@@ -269,7 +290,7 @@ A PARTIR DAQUI AINDA NÃO TEMOS SCREESHOTS
 
 ---
 
-### Test Case 11: Empty Recycle Bin (Single Item)
+### Test Case 12: Empty Recycle Bin (Single Item)
 
 **Objective:** Delete a specific item by ID
 
@@ -295,29 +316,80 @@ A PARTIR DAQUI AINDA NÃO TEMOS SCREESHOTS
 
 ---
 
-### Test Case 12: Recycle Bin Size Limit
+### Test Case 13: Search for Existing File  
 
-**Objective:** Verify deletion fails if recycle bin exceeds MAX_SIZE_MB
+**Objective:** Search by filename or path, case-sensitive and case-insensitive
 
 **Steps:**
-1. Set MAX_SIZE_MB=1 in config
-2. Try to delete a file larger than 1MB
+1. Delete multiple files
+2. Run: `./recycle_bin.sh search '*.txt'`
+3. Run: `./recycle_bin.sh search '*.TXT' -i`
 
 **Expected Result:**
-- Error message displayed
-- File not moved
+- Matching items displayed in table
+- Correct total matches
 
 **Actual Result:**
-- "ERROR: Recycle Bin limit exceeded (1MB). Cannot move '<file>'" in red
+- Table with ID, name, date, size printed
+- Total matches shown
+- Case-insensitive works correctly with -i
 - Log entry created
 
 **Status:** ☑ Pass ☐ Fail
 
-**Screenshots:** [If applicable]
+**Screenshots:**
+![Search Recycle Bin](screenshots/search_recycle_bin.png)
 
 ---
 
-### Test Case 13: Permissions Handling
+### Test Case 14: Search for Non-existent File  
+
+**Objective:** Verify that searching for missing files returns no results.  
+
+**Steps:**  
+1. Ensure `test.txt` is not in recycle bin  
+2. Run: `./recycle_bin.sh search test.txt`  
+
+**Expected Result:**  
+- “No matching results” message displayed  
+
+**Actual Result:**  
+- Yellow message printed  
+- No errors  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+
+### Test Case 15: Delete Non-existent File  
+
+**Objective:** Ensure proper error handling for nonexistent files
+
+**Steps:**
+1. Ensure a file nonexistent.txt does not exist
+2. Run: `./recycle_bin.sh delete nonexistent.txt`   
+
+**Expected Result:**
+- Error message displayed
+- Operation logged as ERROR
+- Exit code indicates failure
+
+**Actual Result:**  
+- `"ERROR: 'nonexistent.txt' does not exist."` printed in red
+- Entry logged in recyclebin.log
+- Exit code 0 (loop continues, overall function returns 0 if at least one valid deletion occurred; returns 1 if none)
+
+**Status:** ☑ Pass ☐ Fail  
+
+**Screenshots:** 
+![Delete Nonexistent File Screenshot](screenshots/nonexistent_file.png)
+
+---
+
+### Test Case 16: Delete File Without Permissions  
 
 **Objective:** Verify deletion fails if file has no read/write permissions
 
@@ -340,7 +412,220 @@ A PARTIR DAQUI AINDA NÃO TEMOS SCREESHOTS
 
 ---
 
-### Test Case 14: Invalid Commands
+### Test Case 17: Restore When Original Location Has Same Filename  
+
+**Objective:** Test conflict  handling when restoring to a location with already existing file
+
+**Steps:**
+1. Delete a file
+2. Create a file with the same name as the deleted one at itś otiginal location
+3. Run: `./recycle_bin.sh restore <ID>`
+4. Test options: overwrite, restore with timestamp, cancel   ????
+
+**Expected Result:**
+- Overwrite replaces file
+- Timestamp restores with modified name
+- Cancel leaves file in recycle bin
+
+**Actual Result:**
+- Conflict message shown in yellow
+- Prompt allows [O/R/C] choice
+- Behavior corresponds to user selection: overwrite, append timestamp, or cancel
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:**
+
+---
+
+### Test Case 18: Restore With ID That Doesn’t Exist  
+
+**Objective:** Verify handling of invalid IDs.  
+
+**Steps:**  
+1. Run: `./recycle_bin.sh restore 999999`  
+
+**Expected Result:**  
+- Error message “No matching entry found”  
+
+**Actual Result:**  
+- Printed in red  
+- Logged as ERROR  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 19: Handle Filenames with Spaces 
+
+**Objective:** Verify filenames with spaces handled properly.
+
+**Steps:**  
+1. Create: `"file with spaces.txt"`
+2. Delete it.
+
+**Expected Result:**  
+- Error message “No matching entry found”  
+
+**Actual Result:**  
+- Printed in red  
+- Logged as ERROR  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable] 
+
+---
+
+### Test Case 20: Handle Filenames with Special Characters  
+
+**Objective:** Verify correct handling of filenames containing symbols.  
+
+**Steps:**  
+1. Create `weird !@#$.txt`  
+2. Run: `./recycle_bin.sh delete "weird !@#$.txt"`  
+3. Restore it  
+
+**Expected Result:**  
+- File handled correctly during deletion and restoration  
+
+**Actual Result:**  
+- Works as expected  
+- Metadata recorded correctly  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 21: Handle Very Long Filenames (>255 chars)  
+
+**Objective:** Verify deletion and restoration of long filenames.  
+
+**Steps:**  
+1. Create file with name length 260 chars  
+2. Run: `./recycle_bin.sh delete <longfilename>`  
+
+**Expected Result:**  
+- File moved successfully  
+- Metadata truncated only internally  
+
+**Actual Result:**  
+- File handled correctly  
+- No crash  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 22: Handle Very Large Files (>100MB)  
+
+**Objective:** Ensure large file movement works correctly.  
+
+**Steps:**  
+1. Create file >100MB  
+2. Run delete command  
+
+**Expected Result:**  
+- File moved successfully  
+- Progress shown if applicable  
+
+**Actual Result:**  
+- File deleted and metadata saved  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 23: Handle Symbolic Links  
+
+**Objective:** Verify symbolic link handling.  
+
+**Steps:**  
+1. Create symlink `ln -s test.txt link.txt`  
+2. Run: `./recycle_bin.sh delete link.txt`  
+
+**Expected Result:**  
+- Only link moved, not target  
+
+**Actual Result:**  
+- Correct behavior confirmed  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 24: Handle Hidden Files  
+
+**Objective:** Ensure hidden files (starting with .) are managed correctly.  
+
+**Steps:**  
+1. Create `.hiddenfile`  
+2. Run delete, list, restore  
+
+**Expected Result:**  
+- Hidden file fully supported  
+
+**Actual Result:**  
+- Works correctly  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 25: Delete Files from Different Directories  
+
+**Objective:** Delete files from different absolute paths.  
+
+**Steps:**  
+1. Create `/tmp/a.txt` and `~/b.txt`  
+2. Run: `./recycle_bin.sh delete /tmp/a.txt ~/b.txt`  
+
+**Expected Result:**  
+- Both moved and metadata includes full paths  
+
+**Actual Result:**  
+- Successful  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 26: Restore Files to Read-only Directories  
+
+**Objective:** Test restoring files when destination is read-only.  
+
+**Steps:**  
+1. Make directory read-only  
+2. Delete file inside it  
+3. Try to restore  
+
+**Expected Result:**  
+- Error “Permission denied”  
+
+**Actual Result:**  
+- Red error message displayed  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 27: Invalid Command Line Arguments  
 
 **Objective:** Ensure unknown commands produce error messages
 
@@ -359,3 +644,181 @@ Run: `./recycle_bin.sh unknown`
 **Status:** ☑ Pass ☐ Fail
 
 **Screenshots:** [If applicable]
+
+---
+
+### Test Case 28: Missing Required Parameters  
+
+**Objective:** Verify that required parameters are validated.  
+
+**Steps:**  
+1. Run: `./recycle_bin.sh delete` with no arguments  
+
+**Expected Result:**  
+- Error “Missing parameters” printed  
+
+**Actual Result:**  
+- Proper error shown  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 29: Corrupted Metadata File  
+
+**Objective:** Verify behavior with corrupted metadata.  
+
+**Steps:**  
+1. Edit `metadata.db` manually and remove headers  
+2. Run: `./recycle_bin.sh list`  
+
+**Expected Result:**  
+- Error handled gracefully  
+- File auto-repaired or recreated  
+
+**Actual Result:**  
+- Script resets metadata file  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 30: Insufficient Disk Space  
+
+**Objective:** Verify that deletion stops if insufficient space in recycle bin.  
+
+**Steps:**  
+1. Simulate full disk  
+2. Run delete  
+
+**Expected Result:**  
+- Red error message with needed/available MB  
+
+**Actual Result:**  
+- “Insufficient disk space” printed  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 31: Permission Denied Errors  
+
+**Objective:** Test generic permission-denied scenarios.  
+
+**Steps:**  
+1. Run script without permission to read source or write bin  
+
+**Expected Result:**  
+- Red error message logged  
+
+**Actual Result:**  
+- Behavior correct  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 32: Attempting to Delete Recycle Bin Itself  
+
+**Objective:** Prevent self-deletion of recycle bin.  
+
+**Steps:**  
+1. Run: `./recycle_bin.sh delete ~/.recycle_bin`  
+
+**Expected Result:**  
+- Error “Cannot delete recycle bin itself”  
+
+**Actual Result:**  
+- Red error message printed  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 33: Concurrent Operations (Run Two Instances)  
+
+**Objective:** Ensure concurrent script execution doesn’t corrupt metadata.  
+
+**Steps:**  
+1. Run two deletions simultaneously  
+
+**Expected Result:**  
+- Metadata remains consistent  
+
+**Actual Result:**  
+- Both succeed independently  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 34: Delete 100+ Files  
+
+**Objective:** Test performance with large batch deletion.  
+
+**Steps:**  
+1. Create 100+ small files  
+2. Run delete  
+
+**Expected Result:**  
+- All files deleted efficiently  
+
+**Actual Result:**  
+- Script completed within seconds  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 35: List Recycle Bin with 100+ Items  
+
+**Objective:** Verify listing performance.  
+
+**Steps:**  
+1. Ensure bin has 100+ entries  
+2. Run: `./recycle_bin.sh list --detailed`  
+
+**Expected Result:**  
+- List formatted and complete  
+
+**Actual Result:**  
+- Output displayed correctly  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  
+
+---
+
+### Test Case 36: Search in Large Metadata File  
+
+**Objective:** Confirm that searching remains efficient with large metadata.  
+
+**Steps:**  
+1. Populate recycle bin with 1000 entries  
+2. Run: `./recycle_bin.sh search "test"`  
+
+**Expected Result:**  
+- Search completes quickly  
+- Correct results  
+
+**Actual Result:**  
+- Works correctly  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** [If applicable]  

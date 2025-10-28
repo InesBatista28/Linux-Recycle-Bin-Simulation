@@ -173,7 +173,7 @@ delete_file() {
     then
       echo -e "${RED}ERROR: '$item' does not exist.${NC}"
       log_msg "ERROR" "Attempt to delete non-existent item: $item"
-      continue 
+      return 1
     fi
 
     # Prevent deletion of the recycle bin itself
@@ -229,6 +229,23 @@ delete_file() {
     permissions=$(stat -c %a "$item")
     owner=$(stat -c %U:%G "$item")
     echo "$id,$original_name,$original_path,$deletion_date,$size,$type,$permissions,$owner" >> "$METADATA_FILE"
+
+    # File size in bytes
+    file_size=$(du -sb "$file" 2>/dev/null | awk '{print $1}')
+    # Free space available in the filesystem containing the recycle bin (in bytes)
+    free_space=$(df -PB1 "$FILES_DIR" | awk 'NR==2 {print $4}')
+
+    # If free space is less than file size, abort
+    if [ "${free_space:-0}" -lt "${file_size:-0}" ]
+    then
+      needed_mb=$(( (${file_size:-0}) / 1024 / 1024 ))
+      avail_mb=$(( (${free_space:-0}) / 1024 / 1024 ))
+      echo -e "${RED}Insufficient disk space: need ${needed_mb} MB, only ${avail_mb} MB available.${NC}"
+      log_msg "ERROR: Not enough space to move $file (needed: ${needed_mb} MB, available: ${avail_mb} MB)"
+      continue
+    fi
+
+
 
     # Move file or directory
     mv "$item" "$FILES_DIR/$id" 2>/dev/null
@@ -768,7 +785,8 @@ show_statistics() {
 
   echo -e "${YELLOW}=== RECYCLE BIN STATISTICS ===${NC}"
   echo "Total items: $total_items"
-  echo "Total size used: $(transform_size "$total_size")"
+  echo "Total Size: $(transform_size "$total_size")"
+
 
   # Count types
   local file_count dir_count
@@ -801,27 +819,15 @@ show_statistics() {
   echo -e "${YELLOW}==============================${NC}"
 }
 
-#################################################
-# Function: auto_cleanup
-# Description: Automatically deletes items older than RETENTION_DAYS
-# Parameters: None
-# Returns: 0
-#################################################
 auto_cleanup() {
   initialize_recyclebin
 
-  # Ler dias de retenção do ficheiro de configuração
   local retention_days
   retention_days=$(grep -E '^RETENTION_DAYS=' "$CONFIG_FILE" | cut -d'=' -f2)
-
-  # Se não existir, define 30 dias por defeito
-  if [ -z "$retention_days" ]; then
-    retention_days=30
-  fi
+  retention_days=${retention_days:-30}
 
   echo -e "${YELLOW}Running automatic cleanup (retention: ${retention_days} days)...${NC}"
 
-  # Data limite
   local current_ts cutoff_ts
   current_ts=$(date +%s)
   cutoff_ts=$(( current_ts - retention_days * 24 * 60 * 60 ))
@@ -833,23 +839,43 @@ auto_cleanup() {
   head -n 1 "$METADATA_FILE" > "$temp_file"
 
   # Processar cada item
-  tail -n +2 "$METADATA_FILE" | while IFS=',' read -r id name path deleted_date deleted_ts size type; do
-    if [ "$deleted_ts" -lt "$cutoff_ts" ]; then
-      # Item expirado → apagar permanentemente
-      if [ -e "$path" ]; then
+  tail -n +2 "$METADATA_FILE" | while IFS=',' read -r id name path deleted_date size type perms owner; do
+
+    # Validar ID seguro (apenas letras, números, _ e -)
+    if [[ ! "$id" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+      echo "Skipping unsafe ID: $id"
+      log_msg "WARNING" "Skipped unsafe ID during auto-cleanup: $id"
+      continue
+    fi
+
+    # Converter data de deleção em timestamp
+    local deletion_ts
+    deletion_ts=$(date -d "$deleted_date" +%s 2>/dev/null)
+    if [ -z "$deletion_ts" ]; then
+      continue
+    fi
+
+    # Verificar se o arquivo está fora do período de retenção
+    if [ "$deletion_ts" -lt "$cutoff_ts" ]; then
+      local file_to_delete="$FILES_DIR/$id"
+
+      # Garantir que está dentro da lixeira
+      if [[ "$file_to_delete" == "$FILES_DIR/"* && -e "$file_to_delete" ]]; then
+        rm -rf "$file_to_delete"
+        deleted_count=$((deleted_count + 1))
         freed_bytes=$((freed_bytes + size))
-        rm -rf "$path"
+      else
+        echo "Skipped unsafe or missing file: $id"
       fi
-      deleted_count=$((deleted_count + 1))
     else
-      # Ainda dentro do prazo → manter
-      echo "$id,$name,$path,$deleted_date,$deleted_ts,$size,$type" >> "$temp_file"
+      # Manter no temp_file
+      echo "$id,$name,$path,$deleted_date,$size,$type,$perms,$owner" >> "$temp_file"
     fi
   done
 
   mv "$temp_file" "$METADATA_FILE"
 
-  # Mostrar resumo
+  # Mostrar resumo (mantido exatamente como querias)
   if [ "$deleted_count" -gt 0 ]; then
     echo -e "${GREEN}Auto-cleanup complete:${NC} $deleted_count items permanently removed."
     echo "Freed space: $(transform_size "$freed_bytes")"
@@ -860,6 +886,7 @@ auto_cleanup() {
   log_msg "INFO" "Auto-cleanup removed $deleted_count items, freed $(transform_size "$freed_bytes")"
   return 0
 }
+
 
 #################################################
 # Function: check_quota
@@ -984,6 +1011,34 @@ preview_file() {
   return 0
 }
 
+purge_corrupted() {
+  initialize_recyclebin
+  echo "Checking for corrupted entries..."
+
+  local missing=0
+  local tmpfile
+  tmpfile=$(mktemp)
+
+  # Mantém cabeçalho
+  head -n 1 "$METADATA_FILE" > "$tmpfile"
+
+  tail -n +2 "$METADATA_FILE" | while IFS=',' read -r id name _
+  do
+    if [ -e "$FILES_DIR/$id" ]
+    then
+        grep "^$id," "$METADATA_FILE" >> "$tmpfile"
+    else
+      echo "Removed corrupted entry for missing ID: $id"
+      ((missing++))
+    fi
+  done
+
+  mv "$tmpfile" "$METADATA_FILE"
+  echo "Purged $missing corrupted entries."
+  log_msg "INFO" "Purged $missing corrupted entries."
+}
+
+
 
 #################################################
 # Function: main
@@ -1058,11 +1113,20 @@ main() {
             preview_file "$1"
             ;;
 
+        purgecorrupted|purge_corrupted)
+            purge_corrupted
+            ;;
+
+        auto_cleanup|autoclean)
+            auto_cleanup
+            ;;
+
         *)
             echo -e "${RED}ERROR: Unknown command: $command${NC}"
             echo "Use './recycle_bin.sh help' to see available commands."
             exit 1
             ;;
+
 
     esac
 }
