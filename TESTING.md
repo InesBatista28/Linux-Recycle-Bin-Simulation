@@ -237,7 +237,7 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail
 
 **Screenshots:** 
-![Restore File by ID](screenshots/retore_file_id.png) 
+![Restore Single File](screenshots/restore_single_file.png) 
 
 ---
 
@@ -313,7 +313,9 @@ Maria Quinteiro, 124996
 
 **Status:** ☑ Pass ☐ Fail
 
-**Screenshots:** [If applicable]
+**Screenshots:** 
+![Empty Single Item](screenshots/13_1.png)
+![Empty Single Item](screenshots/13_2.png)
 
 ---
 
@@ -323,8 +325,8 @@ Maria Quinteiro, 124996
 
 **Steps:**
 1. Delete multiple files
-2. Run: `./recycle_bin.sh search '*.txt'`
-3. Run: `./recycle_bin.sh search '*.TXT' -i`
+2. Run: `./recycle_bin.sh search 'filename.txt'`
+3. Run: `./recycle_bin.sh search 'FILENAME.TXT' -i`
 
 **Expected Result:**
 - Matching items displayed in table
@@ -339,7 +341,7 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail
 
 **Screenshots:**
-![Search Recycle Bin](screenshots/search_recycle_bin.png)
+![Search Existing File](screenshots/search_file.png)
 
 ---
 
@@ -650,7 +652,8 @@ Run: `./recycle_bin.sh unknown`
 
 **Status:** ☑ Pass ☐ Fail
 
-**Screenshots:** [If applicable]
+**Screenshots:** 
+![Unkown Command](screenshots/unknow.png) 
 
 ---
 
@@ -725,11 +728,12 @@ Run: `./recycle_bin.sh unknown`
 - Red error message logged  
 
 **Actual Result:**  
-- Behavior correct  
+- Red error message logged  
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
+**Screenshots:** 
+![Protected File](screenshots/protected.png) 
 
 ---
 
