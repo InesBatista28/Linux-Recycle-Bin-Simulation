@@ -123,8 +123,7 @@ Maria Quinteiro, 124996
 **Steps:**  
 1. Create an empty directory `emptydir`  
 2. Run: `./recycle_bin.sh delete emptydir`  
-3. Check that it is no longer in the original path  
-4. Run: `./recycle_bin.sh list`  
+3. Run: `./recycle_bin.sh list`  
 
 **Expected Result:**  
 - Directory moved to `~/.recycle_bin/files/`  
@@ -138,6 +137,8 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass  
 
 **Screenshots:** 
+![Delete Empty Directory](screenshots/delete_empty_directory.png)
+
 
 ---
 
@@ -151,7 +152,7 @@ Maria Quinteiro, 124996
 3. Verify that directory and contents are removed  
 
 **Expected Result:**  
-- All contents moved recursively  
+- All contents moved recursively  3. Check that it is no longer in the original path  
 - One metadata entry for `dirA`  
 - Log entry created  
 
@@ -162,7 +163,7 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass  
 
 **Screenshots:** 
-
+![Delete Directory with Contents](screenshots/Delete_Directory_with_Contents.png)
 
 ---
 
