@@ -409,7 +409,8 @@ Maria Quinteiro, 124996
 
 **Status:** ☑ Pass ☐ Fail
 
-**Screenshots:** [If applicable]
+**Screenshots:**
+![Delete File Without Permissions](screenshots/permissoes.png)
 
 ---
 
@@ -421,7 +422,7 @@ Maria Quinteiro, 124996
 1. Delete a file
 2. Create a file with the same name as the deleted one at itś otiginal location
 3. Run: `./recycle_bin.sh restore <ID>`
-4. Test options: overwrite, restore with timestamp, cancel   ????
+4. Test options: overwrite, restore with timestamp, cancel 
 
 **Expected Result:**
 - Overwrite replaces file
@@ -436,6 +437,7 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail
 
 **Screenshots:**
+![Restore Same Name](screenshots/same_name.png)
 
 ---
 
@@ -485,8 +487,8 @@ Maria Quinteiro, 124996
 **Objective:** Verify correct handling of filenames containing symbols.  
 
 **Steps:**  
-1. Create `weird !@#$.txt`  
-2. Run: `./recycle_bin.sh delete "weird !@#$.txt"`  
+1. Create `weird!@#$.txt`  
+2. Run: `./recycle_bin.sh delete "weird!@#$.txt"`  
 3. Restore it  
 
 **Expected Result:**  
@@ -498,7 +500,8 @@ Maria Quinteiro, 124996
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
+**Screenshots:** 
+![Special Characters](screenshots/special_caracters.png) 
 
 ---
 
@@ -541,7 +544,8 @@ Maria Quinteiro, 124996
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
+**Screenshots:** 
+![Very Large Files](screenshots/delete_big_files.png) 
 
 ---
 
@@ -557,11 +561,12 @@ Maria Quinteiro, 124996
 - Only link moved, not target  
 
 **Actual Result:**  
-- Correct behavior confirmed  
+- Only link moved, not target, correct behavior confirmed  
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
+**Screenshots:** 
+![Symbolic Links](screenshots/symbolic_links.png) 
 
 ---
 
@@ -577,11 +582,12 @@ Maria Quinteiro, 124996
 - Hidden file fully supported  
 
 **Actual Result:**  
-- Works correctly  
+- Hidden file fully supported  
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
+**Screenshots:** 
+![Hidden File](screenshots/hidden_file.png) 
 
 ---
 
@@ -781,7 +787,9 @@ Run: `./recycle_bin.sh unknown`
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
+**Screenshots:** 
+![Deliting 100 files](screenshots/100files.png)  
+![Metadata](screenshots/metadata_34.png)  
 
 ---
 
@@ -801,7 +809,8 @@ Run: `./recycle_bin.sh unknown`
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
+**Screenshots:** 
+![Listing +100 files](screenshots/list_100.png)  
 
 ---
 
@@ -818,8 +827,39 @@ Run: `./recycle_bin.sh unknown`
 - Correct results  
 
 **Actual Result:**  
-- Works correctly  
+- Search completes quickly  
+- Correct results  
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
+**Screenshots:** 
+![Search in Large Metadata File](screenshots/search.png)  
+
+---
+
+### Test Case 37: Restore from bin with many items
+
+**Objective:** Verify that multiple files can be restored from a recycle bin containing many items, and that metadata is correctly updated. 
+
+**Steps:**  
+1. Create 100+ small files in a single directory 
+2. Delete all files at once
+3. Run `./recycle_bin.sh list` to verify all 100+ files are in the recycle bin.
+4. Restore a subset of files (e.g., file1.txt, file2.txt, file3.txt) using their IDs.
+5. Verify that the restored files are back in their original locations.
+6. Check metadata.db to confirm restored files are removed from metadata.
+
+**Expected Result:**  
+- Search completes quickly  
+- Correct results  
+
+**Actual Result:**  
+- Search completes quickly  
+- Correct results  
+
+**Status:** ☑ Pass  
+
+**Screenshots:** 
+![Restore in big metadata](screenshots/restore.png)  
+![Metadata](screenshots/85.png)
+

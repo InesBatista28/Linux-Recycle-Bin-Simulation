@@ -142,22 +142,18 @@ transform_size() {
 delete_file() {
   initialize_recyclebin
 
-  # Load configuration (MAX_SIZE_MB)
   if [ -f "$CONFIG_FILE" ]
   then
-    # Search inside of the file the line that starts with "MAX_SIZE_MB" to pass on to cut in order to get just the number
     MAX_SIZE_MB=$(grep -E '^MAX_SIZE_MB=' "$CONFIG_FILE" | cut -d'=' -f2)
   else
-    MAX_SIZE_MB=1024  # Default fallback
+    MAX_SIZE_MB=1024
   fi
 
-  # Calculate current recycle bin size and maximum limit (in bytes)
   local current_bin_size 
   local max_bin_bytes
   current_bin_size=$(du -sb "$FILES_DIR" 2>/dev/null | awk '{print $1}')
   max_bin_bytes=$((MAX_SIZE_MB * 1024 * 1024))
 
-  # Check if arguments were provided
   if [ $# -eq 0 ]
   then  
     echo -e "${RED}ERROR: No file/directory specified.${NC}"
@@ -165,18 +161,15 @@ delete_file() {
     return 1
   fi
 
-
   for item in "$@"
   do
-    # Check if item exists
-    if [ ! -e "$item" ]
+    if [ ! -e "$item" ] && [ ! -L "$item" ]
     then
       echo -e "${RED}ERROR: '$item' does not exist.${NC}"
       log_msg "ERROR" "Attempt to delete non-existent item: $item"
-      return 1
+      continue
     fi
 
-    # Prevent deletion of the recycle bin itself
     if [[ "$item" == "$RECYCLE_BIN_DIR"* ]]
     then
       echo -e "${RED}ERROR: Cannot delete the Recycle Bin itself.${NC}"
@@ -184,7 +177,6 @@ delete_file() {
       continue
     fi
 
-    # Check delete permissions
     if [ ! -r "$item" ] || [ ! -w "$item" ]
     then  
       echo -e "${RED}ERROR: No permission to delete '$item'.${NC}"
@@ -192,11 +184,13 @@ delete_file() {
       continue
     fi
 
-
     id=$(generate_id)
 
-    # Determine type and size of the item
-    if [ -d "$item" ]
+    if [ -L "$item" ]
+    then
+      type="symlink"
+      size=$(stat -c %s "$item")
+    elif [ -d "$item" ]
     then
       type="directory"
       size=$(du -sb "$item" | awk '{print $1}')
@@ -205,7 +199,6 @@ delete_file() {
       size=$(stat -c %s "$item")
     fi
 
-    # Check recycle bin capacity (MAX_SIZE_MB)
     if (( current_bin_size + size > max_bin_bytes ))
     then
       echo -e "${RED}ERROR: Recycle Bin limit exceeded (${MAX_SIZE_MB}MB). Cannot move '$item'.${NC}"
@@ -213,7 +206,6 @@ delete_file() {
       continue
     fi
 
-    # Check available disk space
     available=$(bytes_available)
     available=${available:-0}  
     if [ "$available" -lt "$size" ]; then
@@ -222,50 +214,51 @@ delete_file() {
       continue
     fi
 
-    # Data to store in metadata.db
     original_name=$(basename "$item")
-    original_path=$(realpath "$item")
+    original_path=$(realpath -s "$item")
     deletion_date=$(date +"%Y-%m-%d %H:%M:%S")
     permissions=$(stat -c %a "$item")
     owner=$(stat -c %U:%G "$item")
     echo "$id,$original_name,$original_path,$deletion_date,$size,$type,$permissions,$owner" >> "$METADATA_FILE"
 
-    # File size in bytes
-    file_size=$(du -sb "$file" 2>/dev/null | awk '{print $1}')
-    # Free space available in the filesystem containing the recycle bin (in bytes)
     free_space=$(df -PB1 "$FILES_DIR" | awk 'NR==2 {print $4}')
-
-    # If free space is less than file size, abort
-    if [ "${free_space:-0}" -lt "${file_size:-0}" ]
+    if [ "${free_space:-0}" -lt "$size" ]
     then
-      needed_mb=$(( (${file_size:-0}) / 1024 / 1024 ))
-      avail_mb=$(( (${free_space:-0}) / 1024 / 1024 ))
+      needed_mb=$(( size / 1024 / 1024 ))
+      avail_mb=$(( free_space / 1024 / 1024 ))
       echo -e "${RED}Insufficient disk space: need ${needed_mb} MB, only ${avail_mb} MB available.${NC}"
-      log_msg "ERROR: Not enough space to move $file (needed: ${needed_mb} MB, available: ${avail_mb} MB)"
+      log_msg "ERROR: Not enough space to move $item (needed: ${needed_mb} MB, available: ${avail_mb} MB)"
       continue
     fi
 
-
-
-    # Move file or directory
-    mv "$item" "$FILES_DIR/$id" 2>/dev/null
-    if [ $? -ne 0 ]
-    then
-      echo -e "${RED}ERROR: Failed to move '$item' to Recycle Bin.${NC}"
-      log_msg "ERROR" "Failed to move $item to Recycle Bin"
-      continue
+    if [ "$type" = "symlink" ]; then
+      cp -P "$item" "$FILES_DIR/$id"
+      if [ $? -ne 0 ]; then
+        echo -e "${RED}ERROR: Failed to copy symlink '$item' to Recycle Bin.${NC}"
+        log_msg "ERROR" "Failed to copy symlink $item to Recycle Bin"
+        continue
+      fi
+      rm "$item"
+    else
+      mv "$item" "$FILES_DIR/$id" 2>/dev/null
+      if [ $? -ne 0 ]
+      then
+        echo -e "${RED}ERROR: Failed to move '$item' to Recycle Bin.${NC}"
+        log_msg "ERROR" "Failed to move $item to Recycle Bin"
+        continue
+      fi
     fi
 
-    # Update recycle bin size (for multi-file operations)
     current_bin_size=$((current_bin_size + size))
 
-    # Successful move
     echo -e "${GREEN} '$original_name' moved to Recycle Bin.${NC}"
     log_msg "INFO" "'$original_name' moved to Recycle Bin with ID $id"
   done
 
   return 0
 }
+
+
 
 
 
