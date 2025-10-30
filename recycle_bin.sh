@@ -49,11 +49,11 @@ NC='\033[0m'
 #   0 (always - writes to $LOG_FILE)
 #################################################
 log_msg() {
-  local level="$1"
-  local msg="$2"
-  local ts
-  ts=$(date +"%Y-%m-%d %H:%M:%S")
-  echo "[$ts] [$level] $msg" >> "$LOG_FILE"
+    local level="${1:-INFO}"  # Default to INFO if $1 is empty
+    local msg="${2:-}"        # Empty string if $2 is not provided
+    local ts
+    ts=$(date +"%Y-%m-%d %H:%M:%S")
+    echo "[$ts] [$level] $msg" >> "$LOG_FILE"
 }
 
 
@@ -321,19 +321,22 @@ delete_file() {
 list_recycled() {
   initialize_recyclebin
 
-  # Check if metadata file exists and is not empty
-  if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 1 ]
-  then
-    echo -e "${YELLOW}Recycle Bin is empty.${NC}"
-    return 0
-  fi
+    # Check if metadata file exists and is not empty
+    if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 1 ]
+    then
+        echo -e "${YELLOW}Recycle Bin is empty.${NC}"
+        return 0
+    fi
 
-  # Check if detailed mode is requested
-  local detailed=false
-  if [ "$1" == "--detailed" ]
-  then
-    detailed=true
-  fi
+  # Check if detailed mode is requested - FIX: handle no arguments
+    local detailed=false
+    if [ $# -gt 0 ] && [ "$1" == "--detailed" ]
+    then
+        detailed=true
+    fi
+
+
+
 
 
   local total_items
@@ -538,15 +541,29 @@ restore_file() {
 search_recycled() {
     initialize_recyclebin
 
-    local pattern
+    local pattern=""
     local case_flag=""
 
-    # Handle arguments. Pattern is mandatory, -i is optional.
+    # Handle arguments safely - FIXED
+    if [ $# -eq 0 ]
+    then
+        echo -e "${RED}ERROR: No search pattern specified.${NC}"
+        log_msg "ERROR" "Search attempt with no pattern."
+        return 1
+    fi
+
+    # Handle case where only -i is provided
     if [ "$1" == "-i" ]
     then
         case_flag="-i"
-        pattern="$2"
-    elif [ "$2" == "-i" ]
+        pattern="${2:-}"  # Use empty if $2 not provided
+        if [ -z "$pattern" ]
+        then
+            echo -e "${RED}ERROR: No search pattern specified.${NC}"
+            log_msg "ERROR" "Search attempt with no pattern."
+            return 1
+        fi
+    elif [ $# -ge 2 ] && [ "$2" == "-i" ]
     then
         case_flag="-i"
         pattern="$1"
@@ -554,7 +571,7 @@ search_recycled() {
         pattern="$1"
     fi
 
-    # Check for pattern
+    # Check for pattern (should not be empty after above processing)
     if [ -z "$pattern" ]
     then
         echo -e "${RED}ERROR: No search pattern specified.${NC}"
@@ -809,73 +826,25 @@ show_statistics() {
     # If metadata absent or only header, report empty
     if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 1 ]; then
         echo "Recycle bin is empty."
-        log_msg "STATS: No data to display"
+        log_msg "STATS" "No data to display"
         return 0
     fi
 
-    # Load configuration (fallbacks provided by caller if missing)
-    source "$CONFIG_FILE" 2>/dev/null
-    local max_size_bytes=$((MAX_SIZE_MB * 1024 * 1024))
-
-    # Initialize counters
-    local total_items=0
-    local total_size=0
-    local file_count=0
-    local dir_count=0
-    local oldest_date=""
-    local newest_date=""
-
-    # Iterate metadata entries and compute aggregates
-    tail -n +2 "$METADATA_FILE" | while IFS=',' read -r id name path date size type perms owner; do
-        ((total_items++))
-        ((total_size += size))
-        if [[ "$type" == "file" ]]; then
-            ((file_count++))
-        elif [[ "$type" == "directory" ]]; then
-            ((dir_count++))
-        fi
-
-        # Determine oldest and newest deletion timestamps
-        if [ -z "$oldest_date" ] || [[ "$date" < "$oldest_date" ]]; then
-            oldest_date="$date"
-        fi
-        if [ -z "$newest_date" ] || [[ "$date" > "$newest_date" ]]; then
-            newest_date="$date"
-        fi
-    done
-
-    # Recompute reliably outside of subshell for accurate values
-    {
-        total_items=$(tail -n +2 "$METADATA_FILE" | wc -l)
-        total_size=$(tail -n +2 "$METADATA_FILE" | awk -F',' '{sum+=$5} END {print sum}')
-        file_count=$(tail -n +2 "$METADATA_FILE" | awk -F',' '$6=="file"{count++} END {print count+0}')
-        dir_count=$(tail -n +2 "$METADATA_FILE" | awk -F',' '$6=="directory"{count++} END {print count+0}')
-        oldest_date=$(tail -n +2 "$METADATA_FILE" | awk -F',' 'NR==1 || $4<old{old=$4;name=$2} END{print old}')
-        newest_date=$(tail -n +2 "$METADATA_FILE" | awk -F',' 'NR==1 || $4>new{new=$4;name=$2} END{print new}')
-    }
-
-    # Avoid divide-by-zero
-    local avg_size=0
-    if (( total_items > 0 )); then
-        avg_size=$((total_size / total_items))
-    fi
-
-    # Calculate quota usage percentage
-    local quota_pct=0
-    if (( max_size_bytes > 0 )); then
-        quota_pct=$(( (100 * total_size) / max_size_bytes ))
-    fi
-
-    # Present statistics in a human-friendly format
     echo "Recycle Bin Statistics"
-    printf "%-25s %s\n" "Total items:" "$total_items"
-    printf "%-25s %s (%d%% of quota)\n" "Total storage used:" "$(transform_size "$total_size")" "$quota_pct"
-    printf "%-25s %s files, %s directories\n" "Type breakdown:" "$file_count" "$dir_count"
-    printf "%-25s %s\n" "Oldest deletion:" "$oldest_date"
-    printf "%-25s %s\n" "Newest deletion:" "$newest_date"
-    printf "%-25s %s\n" "Average file size:" "$(transform_size "$avg_size")"
-
-    log_msg "STATS: total=$total_items size=${total_size}B files=$file_count dirs=$dir_count"
+    echo "======================"
+    
+    # Simple count
+    local total_items=$(($(wc -l < "$METADATA_FILE") - 1))
+    echo "Total items: $total_items"
+    
+    # Simple size calculation
+    local total_size=0
+    if [ $total_items -gt 0 ]; then
+        total_size=$(tail -n +2 "$METADATA_FILE" | awk -F',' '{sum+=$5} END {print sum}')
+        echo "Total size: $(transform_size "$total_size")"
+    fi
+    
+    log_msg "STATS" "Displayed statistics: $total_items items, ${total_size}B"
 }
 
 
@@ -902,9 +871,11 @@ auto_cleanup() {
 
 
     # Load configuration or fall back to 30 days
+    local RETENTION_DAYS=30
     if [ -f "$CONFIG_FILE" ]
     then
         source "$CONFIG_FILE"
+        RETENTION_DAYS="${RETENTION_DAYS:-30}"
     else
         echo "Warning: Config file not found. Using default RETENTION_DAYS=30."
         RETENTION_DAYS=30
@@ -1142,32 +1113,71 @@ preview_file() {
 # Returns:  0 if the cleanup completes successfully. Non-zero exit code if any Docker command fails.
 #################################################
 purge_corrupted() {
-  initialize_recyclebin
-  echo "${YELLOW}Checking for corrupted entries...${NC}"
+    initialize_recyclebin
+    echo -e "${YELLOW}Checking for corrupted entries...${NC}"
 
-  local missing=0
-  local tmpfile
-  tmpfile=$(mktemp)
-
-  # preserve header
-  head -n 1 "$METADATA_FILE" > "$tmpfile"
-
-
-  # For each metadata row, retain it if the payload exists; otherwise count as missing
-  tail -n +2 "$METADATA_FILE" | while IFS=',' read -r id name _
-  do
-    if [ -e "$FILES_DIR/$id" ]
+    # Check if metadata file exists and has content beyond header
+    if [ ! -f "$METADATA_FILE" ] || [ ! -s "$METADATA_FILE" ]
     then
-        grep "^$id," "$METADATA_FILE" >> "$tmpfile"
-    else
-      echo "Removed corrupted entry for missing ID: $id"
-      ((missing++))
+        echo "No metadata found - nothing to purge."
+        return 0
     fi
-  done
 
-  mv "$tmpfile" "$METADATA_FILE"
-  echo "Purged $missing corrupted entries."
-  log_msg "INFO" "Purged $missing corrupted entries."
+    local line_count=$(wc -l < "$METADATA_FILE" 2>/dev/null)
+    if [ "$line_count" -le 1 ]
+    then    
+        echo "Metadata file has only header - nothing to purge."
+        return 0
+    fi
+
+    local missing=0
+    local tmpfile
+    tmpfile=$(mktemp 2>/dev/null || echo "/tmp/purge_$$.tmp")
+    
+    # Start with header
+    echo "ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER" > "$tmpfile"
+
+    # Process each line in metadata (skip header)
+    tail -n +2 "$METADATA_FILE" | while IFS= read -r line
+    do
+        # Skip empty lines
+        [ -z "$line" ] && continue
+        
+        # Extract ID (first field)
+        local id=$(echo "$line" | cut -d',' -f1)
+        
+        # Check if the file exists in the recycle bin
+        if [ -e "$FILES_DIR/$id" ]
+        then
+            # File exists, keep the entry
+            echo "$line" >> "$tmpfile"
+        else
+            # File is missing, count as corrupted
+            echo "Removed corrupted entry for missing ID: $id"
+            ((missing++))
+            log_msg "INFO" "Purged corrupted entry: $id"
+        fi
+    done
+
+    # Only replace the metadata file if we found corrupted entries
+    if [ $missing -gt 0 ]
+    then
+        if mv "$tmpfile" "$METADATA_FILE" 2>/dev/null
+        then
+            echo "Purged $missing corrupted entries."
+            log_msg "INFO" "Purged $missing corrupted entries"
+        else
+            echo "Error: Failed to update metadata file."
+            log_msg "ERROR" "Failed to update metadata file during purge"
+            rm -f "$tmpfile"
+            return 1
+        fi
+    else
+        echo "No corrupted entries found."
+        rm -f "$tmpfile"
+    fi
+    
+    return 0
 }
 
 
@@ -1179,6 +1189,8 @@ purge_corrupted() {
 # Returns: Exits with non-zero on usage errors or unknown commands
 #################################################
 main() {
+
+  initialize_recyclebin
     exec 200>"$RECYCLE_BIN_DIR/lockfile" || exit 1
     flock -n 200 || { echo "Script already running. Exiting."; exit 1; }
     trap 'flock -u 200; rm -f "$RECYCLE_BIN_DIR/lockfile"' EXIT
