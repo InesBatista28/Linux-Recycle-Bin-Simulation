@@ -59,26 +59,26 @@ $HOME/.recycle_bin/
 The ASCII diagram below provides a structural and functional overview of the **Linux Recycle Bin Simulator**.  
 It illustrates the main program (`recycle_bin.sh`), its internal modular functions, and how they interact with the runtime data directory (`$HOME/.recycle_bin`) and the user command layer.
 
-This representation focuses on the **core logic layer**, showing the *public functions* that implement the simulator’s key features.  
-Other **helper and utility functions** (e.g., log_action(), generate_unique_id(), update_metadata()) also exist within the same script, but are **not shown here**, as they are internal mechanisms supporting the higher-level operations.
+This representation focuses on the core logic layer, showing the *public functions* that implement the simulator’s key features.  
+Other helper and utility functions (e.g., log_action(), generate_unique_id(), update_metadata()) also exist within the same script, but are not shown here, as they are internal mechanisms supporting the higher-level operations.
 
 ```bash
 +-------------------------------------------------------------+
 |      Linux Recycle Bin Simulator (recycle_bin.sh)           |
 +-------------------------------------------------------------+
-|  • main()                  → Command dispatcher             |
-|  • initialize_recyclebin() → Creates structure if missing   |
-|  • delete_file()           → Moves files to recycle bin     |
-|  • list_recycled()         → Displays current contents      |
-|  • restore_file()          → Restores deleted files         |
-|  • search_recycled()       → Searches items in recycle bin  |
-|  • empty_recyclebin()      → Permanently removes files      |
-|  • show_statistics()       → Displays usage statistics      |
-|  • auto_cleanup()          → Removes files by retention rule|
-|  • check_quota()           → Enforces recycle bin size limit|
-|  • preview_file()          → Previews file content          |
-|  • purge_corrupted()       → Removes broken metadata entries|
-|  • display_help()          → Shows help and usage info      |
+| • main()                  → Command dispatcher             |
+| • initialize_recyclebin() → Creates structure if missing   |
+| • delete_file()           → Moves files to recycle bin     |
+| • list_recycled()         → Displays current contents      |
+| • restore_file()          → Restores deleted files         |
+| • search_recycled()       → Searches items in recycle bin  |
+| • empty_recyclebin()      → Permanently removes files      |
+| • show_statistics()       → Displays usage statistics      |
+| • auto_cleanup()          → Removes files by retention rule|
+| • check_quota()           → Enforces recycle bin size limit|
+| • preview_file()          → Previews file content          |
+| • purge_corrupted()       → Removes broken metadata entries|
+| • display_help()          → Shows help and usage info      |
 +-------------------------------------------------------------+
             |
             v
@@ -93,10 +93,9 @@ Other **helper and utility functions** (e.g., log_action(), generate_unique_id()
 ```
 
 ## 2. Data Flow Diagrams
-This section illustrates the internal data flow for the most common operations in the *Linux Recycle Bin Simulator*.  
-Each diagram shows the sequence of interactions between the **user**, the **core script (`recycle_bin.sh`)**, and the **runtime data directory (`~/.recycle_bin/`)**.
-While the `main()` dispatcher in `recycle_bin.sh` supports several additional commands (e.g., `list`, `stats`, `quota`, `preview`),  
-only a subset of these operations directly interacts with the recycle bin’s persistent data structures — namely, the **delete**, **restore**, **search**, and **cleanup** processes.
+This section illustrates the internal data flow for the most common operations in the Linux Recycle Bin Simulator.  
+Each diagram shows the sequence of interactions between the **user**, the **core script** (`recycle_bin.sh`), and the **runtime data directory** (`~/.recycle_bin/`).
+While the main() dispatcher in `recycle_bin.sh` supports several additional commands, only a subset of these operations directly interacts with the recycle bin’s persistent data structures — namely, the **delete**, **restore**, **search**, and **cleanup** processes.
 
 The purpose of this section is to visualize how data moves through the system during these primary actions, highlighting the flow between user input, script logic, and file system persistence.
 
