@@ -22,7 +22,7 @@ LINUX-RECYCLE-BIN-SIMULATION/
 ├── TECHNICAL_DOC.md 
 ├── TESTING.md 
 ├── screenshots/ 
-└── ~/.recycle_bin/ # Diretório oculto criado no sistema do utilizador
+└── ~/.recycle_bin/ 
 ```
 
 **Description:**
@@ -55,13 +55,18 @@ $HOME/.recycle_bin/
 
 ---
 
-
 ### 1.3. ASCII Architecture Diagram
+The ASCII diagram below provides a structural and functional overview of the **Linux Recycle Bin Simulator**.  
+It illustrates the main program (`recycle_bin.sh`), its internal modular functions, and how they interact with the runtime data directory (`$HOME/.recycle_bin`) and the user command layer.
+
+This representation focuses on the **core logic layer**, showing the *public functions* that implement the simulator’s key features.  
+Other **helper and utility functions** (e.g., log_action(), generate_unique_id(), update_metadata()) also exist within the same script, but are **not shown here**, as they are internal mechanisms supporting the higher-level operations.
+
 ```bash
 +-------------------------------------------------------------+
 |      Linux Recycle Bin Simulator (recycle_bin.sh)           |
 +-------------------------------------------------------------+
-|  • main()                 → Command dispatcher              |
+|  • main()                  → Command dispatcher             |
 |  • initialize_recyclebin() → Creates structure if missing   |
 |  • delete_file()           → Moves files to recycle bin     |
 |  • list_recycled()         → Displays current contents      |
@@ -87,13 +92,172 @@ $HOME/.recycle_bin/
 ```
 
 ## 2. Data Flow Diagrams
-### 2.1. Delete Operation
+This section illustrates the internal data flow for the most common operations in the *Linux Recycle Bin Simulator*.  
+Each diagram shows the sequence of interactions between the **user**, the **core script (`recycle_bin.sh`)**, and the **runtime data directory (`~/.recycle_bin/`)**.
+While the `main()` dispatcher in `recycle_bin.sh` supports several additional commands (e.g., `list`, `stats`, `quota`, `preview`),  
+only a subset of these operations directly interacts with the recycle bin’s persistent data structures — namely, the **delete**, **restore**, **search**, and **cleanup** processes.
 
+The purpose of this section is to visualize how data moves through the system during these primary actions, highlighting the flow between user input, script logic, and file system persistence.
+
+### 2.1. Delete Operation
+The delete operation moves one or more files from the filesystem to the simulated recycle bin. This process includes generating a unique identifier, storing metadata, and logging the event.
+
+#### Data Flow Description
+1. **User Input:** The user executes `./recycle_bin.sh delete <file1> [file2 ...]`.
+2. **Validation:** The script checks if the recycle bin exists (`initialize_recyclebin()`).
+3. **Unique ID Generation:** A new ID is created for each file (`generate_unique_id()`).
+4. **Move Operation:** Files are moved to `$HOME/.recycle_bin/files/`.
+5. **Metadata Update:** Original name, path, size, and deletion timestamp are stored in `metadata.db`.
+6. **Logging:** The action is written to `recyclebin.log`.
+7. **Result Output:** The script confirms successful deletion to the user.
+
+
+#### ASCII Diagram
+```bash
+User
+│
+│ delete <file>
+▼
++-------------------------------+
+| recycle_bin.sh                |
+| ├─ check arguments            |
+| ├─ initialize_recyclebin()    |
+| ├─ generate_unique_id()       |
+| ├─ move file to bin           |
+| ├─ update metadata.db         |
+| ├─ log_action("delete")       |
+| └─ echo "File deleted"        |    
++-------------------------------+
+│
+▼
++-------------------------------+
+| ~/.recycle_bin/               |
+| ├─ files/<UUID>.deleted       |
+| ├─ metadata.db (updated)      |
+| └─ recyclebin.log (append)    |
++-------------------------------+
+```
+
+---
 
 ### 2.2. Restore Operation
+The restore operation retrieves a deleted file from the recycle bin and restores it to its original location.
 
+#### Data Flow Description
+1. **User Input:** The user runs `./recycle_bin.sh restore <ID|filename>`.
+2. **Lookup:** The script searches `metadata.db` for the matching entry.
+3. **Validation:** Confirms the file exists in `$HOME/.recycle_bin/files/`.
+4. **Move Back:** The file is moved from the recycle bin to its original path.
+5. **Metadata Update:** The entry is removed or marked as “restored” in `metadata.db`.
+6. **Logging:** The action is appended to `recyclebin.log`.
+7. **Result Output:** Confirmation message shown to the user.
+
+#### ASCII Diagram
+```bash
+User
+│
+│ restore <ID|filename>
+▼
++-------------------------------+
+| recycle_bin.sh                |
+| ├─ search metadata.db         |
+| ├─ verify file existence      |
+| ├─ restore to original path   |
+| ├─ update metadata.db         |
+| ├─ log_action("restore")      |
+| └─ echo "File restored"       | 
++-------------------------------+
+│
+▼
++-------------------------------+
+| ~/.recycle_bin/               |
+| ├─ files/ (file removed)      |
+| ├─ metadata.db (updated)      |
+| └─ recyclebin.log (append)    |
++-------------------------------+
+```
+
+---
 
 ### 2.3. Search Operation
+The search operation allows the user to look up deleted files based on name patterns or metadata filters.
+
+
+#### Data Flow Description
+1. **User Input:** The user executes `./recycle_bin.sh search <pattern> [-i]`.
+2. **Read Metadata:** The script opens and parses `metadata.db`.
+3. **Pattern Matching:** Each record is matched against the user’s search pattern.
+4. **Filtering:** If the `-i` flag is provided, case-insensitive search is applied.
+5. **Output:** Matching entries are displayed in a formatted list.
+
+#### ASCII Diagram
+```bash
+User
+│
+│ search <pattern>
+▼
++---------------------------------+
+| recycle_bin.sh                  |
+| ├─ open metadata.db             |
+| ├─ parse each entry             |
+| ├─ apply pattern filter         |
+| ├─ print matching records       |
+| ├─ log_action("search")         |
+| └─ echo results                 |
++---------------------------------+
+│
+▼
++---------------------------------+
+| ~/.recycle_bin/                 |
+| ├─ metadata.db (read only)      |
+| └─ recyclebin.log (append)      |
++---------------------------------+
+```
+
+---
+
+### 2.4. Empty / Cleanup Operation
+The empty (manual) and cleanup (automatic) operations permanently remove files from the recycle bin.  
+These operations are responsible for freeing space and enforcing retention rules defined in the configuration file.
+
+Both processes follow the same core data flow:  
+they locate files to be deleted, remove them from the `files/` directory, update `metadata.db`, and record the action in `recyclebin.log`.
+
+#### Data Flow Description
+
+1. **User Input:** Manual cleanup: `./recycle_bin.sh empty [--force]` / Automatic cleanup: triggered internally via `auto_cleanup()` when size or time limits are exceeded.
+2. **Initialization:** The script checks that the recycle bin exists and reads configuration parameters from `$HOME/.recycle_bin/config`.
+3. **File Selection:** For *empty*, all files in `$HOME/.recycle_bin/files/` are selected. / For *cleanup*, only files exceeding retention time or size limits are targeted.
+4. **Deletion Process:** Each selected file is permanently removed from the filesystem using `rm -f`.
+5. **Metadata Update:** The corresponding entries are removed (or flagged as deleted) in `metadata.db`.
+6. **Logging:** Each deletion is logged in `recyclebin.log` with a timestamp and action tag (`[EMPTY]` or `[CLEANUP]`).
+7. **Result Output:** A summary is displayed showing the number of deleted items and total freed space.
+
+#### ASCII Diagram
+```bash
+User
+│
+│ empty [--force] or (auto_cleanup trigger)
+▼
++--------------------------------------+
+| recycle_bin.sh                       |
+| ├─ read_config()                     |
+| ├─ check_quota() / retention rules   |
+| ├─ list target files                 |
+| ├─ rm -f selected items              |
+| ├─ update metadata.db                |
+| ├─ log_action("empty"/"cleanup")     |
+| └─ echo summary to user              |
++--------------------------------------+
+│
+▼
++--------------------------------------+
+| ~/.recycle_bin/                      |
+| ├─ files/ (removed items)            |
+| ├─ metadata.db (entries updated)     |
+| └─ recyclebin.log (append entries)   | 
++--------------------------------------+
+```
 
 
 ## 3. Metadata Schema
