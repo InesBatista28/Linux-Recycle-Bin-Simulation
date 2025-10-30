@@ -3,17 +3,35 @@
 #################################################
 # Script Header Comment
 # Author: Inês Batista, Maria Quinteiro
-# Date: 2025-10-17
+# Date: 2025-10-30
 # Description: Linux Recycle Bin Simulator
-# Version: 1.0
+# Version: 2.1.
 #################################################
 
+set -euo pipefail
+#################################################
+# Function: cleanup
+# Purpose: Handles unexpected script interruptions (Ctrl+C or kill signals) and performs safe cleanup before exiting.
+# Parameters: None
+# Returns: Always exits with code 1 after performing cleanup actions.
+#################################################
+cleanup() {
+  echo "Script interrupted. Performing safe cleanup..."
+  echo "Cleanup complete. Exiting safely."
+  exit 1
+}
 
-RECYCLE_BIN_DIR="$HOME/.recycle_bin"     # Main recycle bin directory
-FILES_DIR="$RECYCLE_BIN_DIR/files"       # Subdirectory to store deleted files
-METADATA_FILE="$RECYCLE_BIN_DIR/metadata.db"    # Database file to store information about deleted files
-CONFIG_FILE="$RECYCLE_BIN_DIR/config"     # Configuration file for the recycle system
-LOG_FILE="$RECYCLE_BIN_DIR/recyclebin.log"    # Log file to record all operations
+
+# Trap SIGINT (Ctrl+C) and SIGTERM (kill) signals and call cleanup()
+trap cleanup SIGINT SIGTERM
+
+
+
+RECYCLE_BIN_DIR="$HOME/.recycle_bin"     # Root directory used to store recycle bin data
+FILES_DIR="$RECYCLE_BIN_DIR/files"       # Directory that holds the actual deleted file payloads
+METADATA_FILE="$RECYCLE_BIN_DIR/metadata.db"    # CSV-style metadata store for recycled items
+CONFIG_FILE="$RECYCLE_BIN_DIR/config"     # Configuration file for recycle bin behavior
+LOG_FILE="$RECYCLE_BIN_DIR/recyclebin.log"    # Log file recording operations and errors
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -23,9 +41,12 @@ NC='\033[0m'
 
 #################################################
 # Function: log_msg
-# Description: Utility function used by others to log operations performed in the recycle bin
-# Parameters: $1 - Level (INFO, ERROR), $2 - Message to log
-# Returns: 0
+# Purpose: Append a timestamped log entry to the log file.
+# Parameters:
+#   $1 - Log level (e.g., INFO, ERROR)
+#   $2 - Message to record
+# Returns:
+#   0 (always - writes to $LOG_FILE)
 #################################################
 log_msg() {
   local level="$1"
@@ -38,9 +59,12 @@ log_msg() {
 
 #################################################
 # Function: initialize_recyclebin
-# Description: Creates the initial recycle bin structure and required files, if they do not exist
+# Purpose: Ensure the recycle bin directory structure and default files exist.
+# - Creates $RECYCLE_BIN_DIR, $FILES_DIR
+# - Initializes metadata header, config with defaults, and the log file if missing
 # Parameters: None
-# Returns: 0 if success, 1 if error
+# Returns:
+#   0 on success; function does not explicitly return non-zero on failure but will produce messages if directories/files cannot be created.
 #################################################
 initialize_recyclebin() {
   # Create main directory if it doesn't exist
@@ -81,11 +105,12 @@ initialize_recyclebin() {
 }
 
 
+
 #################################################
 # Function: generate_id
-# Description: Generates a unique ID based on timestamp + process ID, used as the filename for deleted items in the files folder
+# Purpose: Produce a unique identifier for a recycled item. Uses nanosecond epoch plus the current PID to reduce collision risk.
 # Parameters: None
-# Returns: Generated ID
+# Returns: Writes the generated ID to stdout.
 #################################################
 generate_id() {
   echo "$(date +%s%N)_$$"
@@ -93,28 +118,32 @@ generate_id() {
 
 
 
+
 #################################################
 # Function: bytes_available
-# Description: Returns available space in bytes on the recycle bin partition
+# Purpose: Compute available free space (in bytes) on the filesystem containing the recycle bin.
 # Parameters: None
-# Returns: Number of available bytes
+# Returns: Prints number of available bytes to stdout. Returns 0 and prints 0 on error.
 #################################################
 bytes_available() {
   local avail
   avail=$(($(df --output=avail "$RECYCLE_BIN_DIR" 2>/dev/null | tail -1) * 1024))
-  # Fallback in case it's empty
-  if [ -z "$avail" ]; then
+  # Fallback in case the command returned nothing
+    if [ -z "$avail" ]
+    then
     avail=0
   fi
   echo "$avail"
 }
 
 
+
 #################################################
 # Function: transform_size
-# Description: Converts size in bytes to a human-readable format (B, KB, MB, GB)
-# Parameters: $1 - size in bytes
-# Returns: formatted size
+# Purpose: Convert a size in bytes to a human-friendly unit (B, KB, MB, GB, TB).
+# Parameters:
+#   $1 - Size in bytes
+# Returns: Formatted size 
 #################################################
 transform_size() {
   local bytes="$1"
@@ -130,14 +159,16 @@ transform_size() {
 
 #################################################
 # Function: delete_file
-# Description: Moves files or directories to the "Recycle Bin",
-#              saving metadata (original name, path, deletion date,
-#              size, type, permissions, and owner) and logging all operations.
-#              Supports multiple arguments, permission checking,
-#              available space validation, and prevents deleting the Recycle Bin itself.
-#              Directories are deleted recursively.
-# Parameters: $@ - list of files/directories to delete
-# Returns: 0 if at least one item was successfully moved, 1 if all failed or invalid args
+# Purpose:
+#   Move one or more files/directories into the recycle bin:
+#   - Validates existence, permissions, and available space
+#   - Prevents deleting the recycle bin itself
+#   - Records metadata (id, original name, original path, deletion timestamp, size, type, permissions, owner) in $METADATA_FILE
+#   - Supports symlinks, files, and directories (directories moved recursively)
+# Parameters:
+#   $@ - One or more file or directory paths to remove
+# Returns:
+#   0 if at least one item was processed successfully; 1 if called with no arguments
 #################################################
 delete_file() {
   initialize_recyclebin
@@ -163,6 +194,7 @@ delete_file() {
 
   for item in "$@"
   do
+    # Validate existence (regular/symlink)
     if [ ! -e "$item" ] && [ ! -L "$item" ]
     then
       echo -e "${RED}ERROR: '$item' does not exist.${NC}"
@@ -170,6 +202,7 @@ delete_file() {
       continue
     fi
 
+    # Protect against deleting the recycle bin directory itself
     if [[ "$item" == "$RECYCLE_BIN_DIR"* ]]
     then
       echo -e "${RED}ERROR: Cannot delete the Recycle Bin itself.${NC}"
@@ -177,6 +210,7 @@ delete_file() {
       continue
     fi
 
+    # Ensure user has read and write permission on the target
     if [ ! -r "$item" ] || [ ! -w "$item" ]
     then  
       echo -e "${RED}ERROR: No permission to delete '$item'.${NC}"
@@ -185,7 +219,7 @@ delete_file() {
     fi
 
     id=$(generate_id)
-
+    # Determine type and size
     if [ -L "$item" ]
     then
       type="symlink"
@@ -199,6 +233,8 @@ delete_file() {
       size=$(stat -c %s "$item")
     fi
 
+
+    # Check against configured recycle bin quota
     if (( current_bin_size + size > max_bin_bytes ))
     then
       echo -e "${RED}ERROR: Recycle Bin limit exceeded (${MAX_SIZE_MB}MB). Cannot move '$item'.${NC}"
@@ -206,9 +242,13 @@ delete_file() {
       continue
     fi
 
+    # Confirm there is available disk space on the underlying filesystem
     available=$(bytes_available)
-    available=${available:-0}  
-    if [ "$available" -lt "$size" ]; then
+    available=${available:-0} 
+
+
+    if [ "$available" -lt "$size" ]
+    then
       echo -e "${RED}ERROR: Not enough space to move '$item'.${NC}"
       log_msg "ERROR" "Insufficient space for $item, size $size bytes."
       continue
@@ -220,7 +260,7 @@ delete_file() {
     permissions=$(stat -c %a "$item")
     owner=$(stat -c %U:%G "$item")
     echo "$id,$original_name,$original_path,$deletion_date,$size,$type,$permissions,$owner" >> "$METADATA_FILE"
-
+    # check free bytes on the filesystem containing $FILES_DIR
     free_space=$(df -PB1 "$FILES_DIR" | awk 'NR==2 {print $4}')
     if [ "${free_space:-0}" -lt "$size" ]
     then
@@ -231,7 +271,10 @@ delete_file() {
       continue
     fi
 
-    if [ "$type" = "symlink" ]; then
+
+    # Move/copy the item into the recycle bin storage area
+    if [ "$type" = "symlink" ]
+    then
       cp -P "$item" "$FILES_DIR/$id"
       if [ $? -ne 0 ]; then
         echo -e "${RED}ERROR: Failed to copy symlink '$item' to Recycle Bin.${NC}"
@@ -266,10 +309,14 @@ delete_file() {
 
 #################################################
 # Function: list_recycled
-# Description: Lists the current Recycle Bin contents in a table format.
-#              Supports a detailed mode. Also calculates total items and total used space.
-# Parameters: $1 - "--detailed" to enable detailed mode
-# Returns: 0 on success, also 0 if the bin is empty
+# Purpose:
+#   Display the contents of the recycle bin in a tabular format.
+#   If '--detailed' is provided, show full metadata for each item.
+#   Also prints totals for number of items and total size used.
+# Parameters:
+#   $1 - Optional flag '--detailed' to enable detailed view
+# Returns:
+#   0 on success (also returns 0 when bin is empty)
 #################################################
 list_recycled() {
   initialize_recyclebin
@@ -292,7 +339,8 @@ list_recycled() {
   local total_items
   local total_size
 
-  total_items=$(($(wc -l < "$METADATA_FILE") - 1))  # subtract header
+  total_items=$(($(wc -l < "$METADATA_FILE") - 1))  
+  # subtract header
   # Set comma as delimiter, ignore header, sum fifth column, and print total
   total_size=$(awk -F',' 'NR>1 {sum+=$5} END {print sum}' "$METADATA_FILE")
 
@@ -303,7 +351,7 @@ list_recycled() {
   printf "${GREEN}%-35s | %-25s | %-30s | %-12s${NC}\n" "ID" "Original filename" "Deletion date and time" "File size"
 
 
-    # Read metadata file ignoring header
+    # Read metadata file ignoring header and print rows
     tail -n +2 "$METADATA_FILE" | while read line; do
       id=$(echo "$line" | cut -d',' -f1)
       original_name=$(echo "$line" | cut -d',' -f2)
@@ -352,11 +400,16 @@ list_recycled() {
 
 #################################################
 # Function: restore_file
-# Description: Restores a file or directory from the Recycle Bin to its original location. 
-#              Accepts either the file ID or the original filename as parameter.
-#              Handles naming conflicts, directory recreation, permission restoration, metadata cleanup, and logs all operations.
-# Parameters: $1 - File ID or original filename
-# Returns: 0 if restored successfully, 1 otherwise
+# Purpose:
+#   Restore an item from the recycle bin back to its original location.
+#   Accepts either the recycle ID or the original filename to find the entry.
+#   Handles destination conflicts (overwrite, rename, cancel), recreates parent
+#   directories when necessary, restores permissions, and removes metadata entry
+#   on successful restore.
+# Parameters:
+#   $1 - Recycle ID or original filename
+# Returns:
+#   0 on success; 1 on error or if the item is not found
 #################################################
 restore_file() {
     local target="$1"
@@ -367,8 +420,11 @@ restore_file() {
         return 1
     fi
 
-    # Find matching entry (by ID or name)
-    match=$(grep -m1 -E "^$target,|,$target," "$METADATA_FILE")
+
+
+
+    # Find the first matching metadata entry by ID or by name field
+    match=$(grep -m1 -E "^$(printf '%s' "$target"),|,$(printf '%s' "$target")," "$METADATA_FILE")
 
     if [ -z "$match" ]
     then
@@ -377,10 +433,19 @@ restore_file() {
         return 1
     fi
 
-    # Extract metadata fields
+    # parse CSV fields into local variables
     IFS=',' read -r id name path date size type perms owner <<< "$match"
     source_path="$FILES_DIR/$id"
     dest_path="$path"
+
+    if [ ! -w "$(dirname "$dest_path")" ]
+    then
+      echo "Error: Cannot restore to read-only directory." >&2
+      log_msg "RESTORE_FAIL: Read-only directory for $name ($id)"
+      return 1
+    fi
+
+
 
     # Check if source exists
     if [ ! -e "$source_path" ]
@@ -420,7 +485,8 @@ restore_file() {
         return 1
     }
 
-    # ✅ Check available disk space before restoring
+
+    # Check available space at the destination filesystem before moving
     required_space=$(du -sb "$source_path" | awk '{print $1}')
     available_space=$(df -P "$(dirname "$dest_path")" | awk 'NR==2 {print $4 * 1024}')
 
@@ -431,7 +497,12 @@ restore_file() {
         return 1
     fi
 
-    # Attempt restore
+
+
+
+
+
+    # Perform the restore: move payload back  and restore permissions  andf update metadata
     if mv "$source_path" "$dest_path"
     then
         chmod "$perms" "$dest_path" 2>/dev/null
@@ -453,11 +524,16 @@ restore_file() {
 
 #################################################
 # Function: search_recycled
-# Description: Searches metadata by filename or path using a wildcard pattern.
-#              Supports case-insensitive searching.
-# Parameters: $1 - Search pattern (e.g., "*.txt", "report").
-#             $2 - (Optional) "-i" for case-insensitive search (can be $1 or $2).
-# Returns: 0 on success, 1 on error.
+# Purpose:
+#   Search the metadata records for matches against filename or original path.
+#   Supports shell-style wildcard patterns and an optional case-insensitive mode.
+# Implementation notes:
+#   - Uses process substitution to avoid subshell variable scoping issues.
+# Parameters:
+#   $1 - Search pattern (e.g., "*.txt" or "report")
+#   $2 - Optional "-i" to enable case-insensitive matching (may be provided as $1 or $2)
+# Returns:
+#   0 on success; 1 on error (e.g., no pattern supplied)
 #################################################
 search_recycled() {
     initialize_recyclebin
@@ -478,7 +554,7 @@ search_recycled() {
         pattern="$1"
     fi
 
-    # Requirement 1: Check for pattern
+    # Check for pattern
     if [ -z "$pattern" ]
     then
         echo -e "${RED}ERROR: No search pattern specified.${NC}"
@@ -486,7 +562,7 @@ search_recycled() {
         return 1
     fi
 
-    # Requirement 6: Case-insensitive search option
+    # Case-insensitive search option
     local shopt_reset=false
     if [ "$case_flag" == "-i" ]
     then
@@ -500,11 +576,10 @@ search_recycled() {
     local results_body="" # Store formatted lines
 
     # Use process substitution < <(command) to read from the 'tail' command
-    # This avoids running the 'while' loop in a subshell,
-    # so variables (match_found, line_count) retain their values.
+    # This avoids running the 'while' loop in a subshell, so variables (match_found, line_count) retain their values.   <<<<<<--------IMPORTANT
     while IFS=',' read -r id name path date size type perms owner; do
         
-        # Requirement 2 & 3: Search name (col 2) and path (col 3) using the wildcard pattern
+        # Search name and path using the wildcard pattern
         if [[ "$name" =~ $pattern || "$path" =~ $pattern ]]
         then
             match_found=true
@@ -523,15 +598,16 @@ search_recycled() {
         shopt -u nocasematch
     fi
 
-    # Requirement 5: Show message if no matches found
+    # Show message if no matches found
     if [ "$match_found" = false ]
     then
         echo -e "${YELLOW}No matches found for '$pattern'.${NC}"
         log_msg "INFO" "Search for '$pattern' found 0 matches."
     else
-        # Requirement 4: Display table format
+        # Display table format
         echo -e "${YELLOW}Search results for '$pattern':${NC}"
-        # Print header
+
+
         printf "${GREEN}%-35s | %-25s | %-30s | %-12s${NC}\n" "ID" "Original filename" "Deletion date and time" "File size"
         # Print the stored body
         echo "$results_body"
@@ -543,20 +619,24 @@ search_recycled() {
 }
 
 
+
 #################################################
 # Function: empty_recyclebin
-# Description: Permanently deletes items from the Recycle Bin.
-#              Supports deleting all items or a specific one by ID.
-#              Requires user confirmation unless --force is provided.
-# Parameters: $1 - (optional) ID or "--force"
-#             $2 - (optional) "--force" if not the first parameter
-# Returns: 0 on success, 1 on error
+# Purpose: Permanently remove items from the recycle bin. Modes:
+#     - No argument: prompt and delete all entries
+#     - ID provided: prompt and delete the specific entry and payload
+#             Supports --force to skip confirmation prompts.
+# Parameters:
+#   $1 - Optional ID of item to remove or --force
+#   $2 - Optional --force if not given as $1
+# Returns:
+#   0 on success; 1 on error
 #################################################
 empty_recyclebin() {
     local target=""
     local force=false
 
-    # Parse argumentos
+    # capture a target ID or the --force flag
     for arg in "$@"; do
         case "$arg" in
             --force) force=true ;;
@@ -564,27 +644,31 @@ empty_recyclebin() {
         esac
     done
 
-    # Verifica se há algo para apagar
+    # If metadata missing or contains only header, nothing to do
     if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 1 ]; then
         echo "Recycle bin is already empty."
         log_msg "EMPTY_SKIP: Recycle bin already empty"
         return 0
     fi
 
-    # MODO 1: Esvaziar tudo
+    # MODO 1: Empty entire bin
     if [ -z "$target" ]; then
         if [ "$force" = false ]; then
             read -rp "This will permanently delete ALL items. Continue? (y/n): " confirm
             [[ "$confirm" =~ ^[Yy]$ ]] || { echo "Operation cancelled."; return 0; }
         fi
 
-        # Conta linhas do metadata (sem cabeçalho)
+        # Count metadata rows excluding header
         local line_count
         line_count=$(($(wc -l < "$METADATA_FILE") - 1))
         if (( line_count < 0 )); then line_count=0; fi
 
-        # Tenta apagar ficheiros
-        if rm -rf "$FILES_DIR"/* 2>/dev/null; then
+
+
+
+        # Try to remove payload files and reinitialize metadata header
+        if rm -rf "$FILES_DIR"/* 2>/dev/null
+        then
             echo "ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER" > "$METADATA_FILE"
             echo "Emptied recycle bin ($line_count items)."
             log_msg "EMPTY_BIN: Deleted all ($line_count items)"
@@ -596,9 +680,14 @@ empty_recyclebin() {
         return 0
     fi
 
-    # MODO 2: Apagar item específico
+
+
+
+
+    # MODO 2: Delete a specific item by ID
     match=$(grep -m1 "^$target," "$METADATA_FILE")
-    if [ -z "$match" ]; then
+    if [ -z "$match" ]
+    then 
         echo "Error: Item ID '$target' not found."
         log_msg "EMPTY_FAIL: Item not found ($target)"
         return 1
@@ -606,22 +695,29 @@ empty_recyclebin() {
 
     IFS=',' read -r id name path date size type perms owner <<< "$match"
 
-    if [ "$force" = false ]; then
+    if [ "$force" = false ]
+    then
         read -rp "This will permanently delete '$name' ($id). Continue? (y/n): " confirm
         [[ "$confirm" =~ ^[Yy]$ ]] || { echo "Operation cancelled."; return 0; }
     fi
 
-    # Apagar ficheiro e validar permissões
-    if [ -e "$FILES_DIR/$id" ]; then
-        if rm -rf "$FILES_DIR/$id" 2>/dev/null; then
+    # Remove payload and update metadata accordingly
+    if [ -e "$FILES_DIR/$id" ]
+    then
+        if rm -rf "$FILES_DIR/$id" 2>/dev/null
+        then
             grep -v "^$id," "$METADATA_FILE" > "${METADATA_FILE}.tmp" && mv "${METADATA_FILE}.tmp" "$METADATA_FILE"
             echo "Permanently deleted '$name' ($id)."
             log_msg "EMPTY_ITEM: Permanently deleted $name ($id)"
+
+
         else
             echo "Error: Failed to delete '$name' due to permission issues." >&2
             log_msg "EMPTY_FAIL: Permission denied deleting $name ($id)"
             return 1
         fi
+
+
     else
         echo "Warning: File data not found for '$name' ($id). Cleaning metadata."
         grep -v "^$id," "$METADATA_FILE" > "${METADATA_FILE}.tmp" && mv "${METADATA_FILE}.tmp" "$METADATA_FILE"
@@ -637,7 +733,7 @@ empty_recyclebin() {
 
 #################################################
 # Function: display_help
-# Description: Displays comprehensive usage information, available commands, examples, command-line options, and configuration file location.
+# Purpose: Print comprehensive usage help, available commands, options, examples, and file locations.
 # Parameters: None
 # Returns: 0
 #################################################
@@ -702,23 +798,26 @@ EOF
 
 #################################################
 # Function: show_statistics
-# Description: Displays summary statistics about the Recycle Bin contents
+# Purpose: Print aggregated statistics about the recycle bin:
+#   - Total items, total storage used, breakdown by type
+#   - Oldest and newest deletion timestamps
+#   - Average file size and quota utilization percentage
 # Parameters: None
 # Returns: 0
 #################################################
 show_statistics() {
-    # Verificar se há dados
+    # If metadata absent or only header, report empty
     if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 1 ]; then
         echo "Recycle bin is empty."
         log_msg "STATS: No data to display"
         return 0
     fi
 
-    # Carregar configuração
+    # Load configuration (fallbacks provided by caller if missing)
     source "$CONFIG_FILE" 2>/dev/null
     local max_size_bytes=$((MAX_SIZE_MB * 1024 * 1024))
 
-    # Variáveis temporárias
+    # Initialize counters
     local total_items=0
     local total_size=0
     local file_count=0
@@ -726,7 +825,7 @@ show_statistics() {
     local oldest_date=""
     local newest_date=""
 
-    # Ler metadados linha a linha (ignorando cabeçalho)
+    # Iterate metadata entries and compute aggregates
     tail -n +2 "$METADATA_FILE" | while IFS=',' read -r id name path date size type perms owner; do
         ((total_items++))
         ((total_size += size))
@@ -736,7 +835,7 @@ show_statistics() {
             ((dir_count++))
         fi
 
-        # Determinar mais antigo e mais recente
+        # Determine oldest and newest deletion timestamps
         if [ -z "$oldest_date" ] || [[ "$date" < "$oldest_date" ]]; then
             oldest_date="$date"
         fi
@@ -745,7 +844,7 @@ show_statistics() {
         fi
     done
 
-    # Recalcular fora do subshell
+    # Recompute reliably outside of subshell for accurate values
     {
         total_items=$(tail -n +2 "$METADATA_FILE" | wc -l)
         total_size=$(tail -n +2 "$METADATA_FILE" | awk -F',' '{sum+=$5} END {print sum}')
@@ -755,19 +854,19 @@ show_statistics() {
         newest_date=$(tail -n +2 "$METADATA_FILE" | awk -F',' 'NR==1 || $4>new{new=$4;name=$2} END{print new}')
     }
 
-    # Evitar divisão por zero
+    # Avoid divide-by-zero
     local avg_size=0
     if (( total_items > 0 )); then
         avg_size=$((total_size / total_items))
     fi
 
-    # Percentagem da quota
+    # Calculate quota usage percentage
     local quota_pct=0
     if (( max_size_bytes > 0 )); then
         quota_pct=$(( (100 * total_size) / max_size_bytes ))
     fi
 
-    # Mostrar resultados formatados
+    # Present statistics in a human-friendly format
     echo "Recycle Bin Statistics"
     printf "%-25s %s\n" "Total items:" "$total_items"
     printf "%-25s %s (%d%% of quota)\n" "Total storage used:" "$(transform_size "$total_size")" "$quota_pct"
@@ -780,72 +879,96 @@ show_statistics() {
 }
 
 
+
+
 #################################################
-# Function: AUto Cleanup
-# Description: 
-# Parameters: 
-# Returns: 
+# Function: auto_cleanup
+# Purpose: Remove recycled items older than the retention period (RETENTION_DAYS).
+#   - Loads RETENTION_DAYS from config (defaults to 30)
+#   - Deletes payloads older than the cutoff and removes their metadata entries
+#   - Logs deletions and summarizes results
+# Parameters: None
+# Returns: 0 on success; 1 if recycle bin not initialized
 #################################################
 auto_cleanup() {
-    # Garantir que metadata existe
-    if [ ! -f "$METADATA_FILE" ]; then
+    # Ensure metadata exists
+    if [ ! -f "$METADATA_FILE" ]
+    then
         echo "Recycle bin not initialized."
         log_msg "CLEANUP_FAIL: Recycle bin not initialized"
         return 1
     fi
 
-    # Carregar configuração
-    if [ -f "$CONFIG_FILE" ]; then
+
+
+    # Load configuration or fall back to 30 days
+    if [ -f "$CONFIG_FILE" ]
+    then
         source "$CONFIG_FILE"
     else
         echo "Warning: Config file not found. Using default RETENTION_DAYS=30."
         RETENTION_DAYS=30
     fi
 
-    # Verificar se há algo para limpar
-    if [ "$(wc -l < "$METADATA_FILE")" -le 1 ]; then
+    # If there are no entries, nothing to do
+    if [ "$(wc -l < "$METADATA_FILE")" -le 1 ]
+    then
         echo "Recycle bin is empty — nothing to clean."
         log_msg "CLEANUP_SKIP: Recycle bin empty"
+
         return 0
     fi
 
-    # Calcular timestamp limite (em segundos)
+    # Compute cutoff timestamp in seconds
     local cutoff_ts
     cutoff_ts=$(date -d "-${RETENTION_DAYS} days" +%s)
+
+
 
     local deleted_count=0
     local freed_space=0
 
-    # Ler metadata linha a linha (ignorando cabeçalho)
+
+
+
+    # Iterate metadata and delete items older than cutoff
     tail -n +2 "$METADATA_FILE" | while IFS=',' read -r id name path date size type perms owner; do
-        # Converter data de deleção para timestamp
+        # Convert deletion date into timestamp (fallback to 0 on parse error)
         file_ts=$(date -d "$date" +%s 2>/dev/null || echo 0)
 
-        # Se o ficheiro for mais antigo que o limite, elimina
-        if (( file_ts > 0 && file_ts < cutoff_ts )); then
-            if [ -e "$FILES_DIR/$id" ]; then
-                if rm -rf "$FILES_DIR/$id" 2>/dev/null; then
+        if (( file_ts > 0 && file_ts < cutoff_ts ))
+        then
+
+            if [ -e "$FILES_DIR/$id" ]
+            then
+
+
+                if rm -rf "$FILES_DIR/$id" 2>/dev/null
+                then
                     ((deleted_count++))
                     ((freed_space += size))
                     log_msg "CLEANUP_DELETE: Removed $name ($id) — older than $RETENTION_DAYS days"
+
                 else
                     log_msg "CLEANUP_FAIL: Permission denied deleting $name ($id)"
                 fi
+
+
             else
                 log_msg "CLEANUP_WARN: Missing data file for $name ($id)"
             fi
 
-            # Remover entrada do metadata
+            # Remove metadata entry for the deleted item
             grep -v "^$id," "$METADATA_FILE" > "${METADATA_FILE}.tmp" && mv "${METADATA_FILE}.tmp" "$METADATA_FILE"
         fi
     done
 
-    # Recalcular totais (fora do subshell)
+    # Recompute summary values in a reliable manner (outside the loop)
     deleted_count=$(grep -c "CLEANUP_DELETE" "$LOG_FILE")
     freed_space_bytes=$(awk -F',' '{sum+=$5} END{print sum}' "$METADATA_FILE")
     human_freed=$(transform_size "$freed_space")
 
-    # Mostrar resumo
+    # Summarize results to the user
     echo "Auto Cleanup Summary"
     printf "%-25s %s days\n" "Retention period:" "$RETENTION_DAYS"
     printf "%-25s %s items\n" "Items deleted:" "$deleted_count"
@@ -856,42 +979,52 @@ auto_cleanup() {
 
 
 
+
 #################################################
 # Function: check_quota
-# Description: Checks if the Recycle Bin exceeds MAX_SIZE_MB.
-#              Displays a warning or triggers auto-cleanup if full.
+# Purpose: Evaluate current recycle bin usage against configured MAX_SIZE_MB:
+#   - Reports total used, quota limit, and percentage used
+#   - If quota exceeded, log warning and attempt auto_cleanup if available
 # Parameters: None
-# Returns: 0
+# Returns: 0 on success; 1 if recycle bin not initialized
 #################################################
 check_quota() {
-    # Garantir que recycle bin existe
-    if [ ! -d "$FILES_DIR" ]; then
+    # Ensure recycle bin exists
+    if [ ! -d "$FILES_DIR" ]
+    then
         echo "Recycle bin not initialized."
         log_msg "QUOTA_FAIL: recycle bin not initialized"
         return 1
     fi
 
-    # Carregar configuração
-    if [ -f "$CONFIG_FILE" ]; then
+    # Load configuration or set default
+    if [ -f "$CONFIG_FILE" ]
+    then
         source "$CONFIG_FILE"
+
+
     else
         echo "Warning: Config file not found. Using default MAX_SIZE_MB=1024"
         MAX_SIZE_MB=1024
     fi
 
-    # Calcular uso atual em bytes
+    # Compute current usage in bytes
     local total_bytes
     total_bytes=$(du -sb "$FILES_DIR" 2>/dev/null | awk '{print $1}')
     total_bytes=${total_bytes:-0}
     local max_bytes=$((MAX_SIZE_MB * 1024 * 1024))
 
-    # Calcular percentagem de uso
+    # Compute usage percentage
     local usage_pct=0
-    if (( max_bytes > 0 )); then
+    if (( max_bytes > 0 ))
+    then
         usage_pct=$(( (100 * total_bytes) / max_bytes ))
     fi
 
-    # Converter para formato legível
+
+
+
+    # Convert total to a human-readable string
     local total_hr
     total_hr=$(transform_size "$total_bytes")
 
@@ -900,16 +1033,23 @@ check_quota() {
     printf "%-25s %s MB\n" "Quota limit:" "$MAX_SIZE_MB"
     printf "%-25s %s%%\n" "Usage:" "$usage_pct"
 
-    # Verificar se excedeu a quota
-    if (( total_bytes > max_bytes )); then
+
+
+
+    # If quota exceeded, notify and optionally trigger cleanup
+    if (( total_bytes > max_bytes ))
+    then
         echo "WARNING: Recycle bin exceeds quota limit!"
         log_msg "QUOTA_WARN: ${usage_pct}% used (limit ${MAX_SIZE_MB}MB)"
 
-        # Acionar limpeza automática se disponível
-        if declare -F auto_cleanup >/dev/null; then
+        # Trigger automatic cleanup if the function is defined
+        if declare -F auto_cleanup >/dev/null
+        then
             echo "Triggering automatic cleanup..."
             auto_cleanup
         fi
+
+
     else
         log_msg "QUOTA_OK: ${usage_pct}% used (${total_hr}/${MAX_SIZE_MB}MB)"
     fi
@@ -918,41 +1058,50 @@ check_quota() {
 
 #################################################
 # Function: preview_file
-# Description: Displays a preview of a file stored in the Recycle Bin.
-#              For text files, shows the first 10 lines.
-#              For binary files, shows file type info.
-# Parameters: $1 - File ID
-# Returns: 0 if successful, 1 on error
+# Purpose: Provide a short preview of a recycled file:
+#   - If text/* mime type, show first 10 lines
+#   - Otherwise display file type information
+# Parameters: $1 - Recycle ID
+# Returns: 0 on success; 1 on error
 #################################################
 preview_file() {
     local id="$1"
 
-    # Verificações básicas
-    if [ -z "$id" ]; then
+    # Basic argument validation
+    if [ -z "$id" ]
+    then
         echo "Usage: ./recycle_bin.sh preview <file_id>"
         return 1
     fi
-
-    if [ ! -f "$METADATA_FILE" ]; then
+    if [ ! -f "$METADATA_FILE" ]
+    then
         echo "Recycle bin not initialized."
         return 1
     fi
 
-    # Procurar entrada no metadata
+    # Lookup metadata entry by ID
     local entry
     entry=$(grep "^$id," "$METADATA_FILE")
 
-    if [ -z "$entry" ]; then
+    if [ -z "$entry" ]
+    then
         echo "Error: No item found with ID '$id'."
         log_msg "PREVIEW_FAIL: ID not found ($id)"
         return 1
     fi
 
+
+
+
     local file_path="$FILES_DIR/$id"
     local original_name
+
+
+
     original_name=$(echo "$entry" | awk -F',' '{print $2}')
 
-    if [ ! -f "$file_path" ]; then
+    if [ ! -f "$file_path" ]
+    then
         echo "Error: Recycled file not found ($file_path)"
         log_msg "PREVIEW_FAIL: Missing file for ID $id"
         return 1
@@ -960,34 +1109,51 @@ preview_file() {
 
     echo "Preview of: $original_name"
 
-    # Determinar tipo de ficheiro
+
+
+    # Determine MIME type to decide how to preview
     local ftype
     ftype=$(file -b --mime-type "$file_path")
 
-    # Mostrar conteúdo se for texto
-    if [[ "$ftype" == text/* ]]; then
+    # If text, show first lines; else show file information
+    if [[ "$ftype" == text/* ]]
+    then
         head -n 10 "$file_path"
         echo "(Showing first 10 lines)"
+
     else
         echo "Binary or non-text file detected:"
         file "$file_path"
     fi
 
+
+
     log_msg "PREVIEW_OK: $original_name ($id) type=$ftype"
 }
 
 
+
+
+
+#################################################
+# Function: purge_corrupted
+# Purpose: Identifies and removes corrupted or partially created Docker resources that may cause build failures, inconsistent states, or deployment issues.
+# Parameters: None
+# Returns:  0 if the cleanup completes successfully. Non-zero exit code if any Docker command fails.
+#################################################
 purge_corrupted() {
   initialize_recyclebin
-  echo "Checking for corrupted entries..."
+  echo "${YELLOW}Checking for corrupted entries...${NC}"
 
   local missing=0
   local tmpfile
   tmpfile=$(mktemp)
 
-  # Mantém cabeçalho
+  # preserve header
   head -n 1 "$METADATA_FILE" > "$tmpfile"
 
+
+  # For each metadata row, retain it if the payload exists; otherwise count as missing
   tail -n +2 "$METADATA_FILE" | while IFS=',' read -r id name _
   do
     if [ -e "$FILES_DIR/$id" ]
@@ -1008,12 +1174,19 @@ purge_corrupted() {
 
 #################################################
 # Function: main
-# Description: Command dispatcher for all Recycle Bin operations
-# Now includes 'stats' command for show_statistics()
+# Purpose: Top-level dispatcher that parses the first CLI argument as a command and routes to the corresponding function. Commands supported include: init, delete, list, restore, search, empty, stats, cleanup, quota, preview, purgecorrupted, and help.
+# Parameters: arguments passed to the script
+# Returns: Exits with non-zero on usage errors or unknown commands
 #################################################
 main() {
+    exec 200>"$RECYCLE_BIN_DIR/lockfile" || exit 1
+    flock -n 200 || { echo "Script already running. Exiting."; exit 1; }
+    trap 'flock -u 200; rm -f "$RECYCLE_BIN_DIR/lockfile"' EXIT
+
+
     # Check if at least one argument is provided
-    if [ $# -lt 1 ]; then
+    if [ $# -lt 1 ]
+    then
         echo -e "${RED}ERROR: No command specified.${NC}"
         echo "Use './recycle_bin.sh help' to see available commands."
         exit 1
@@ -1028,7 +1201,8 @@ main() {
             ;;
 
         delete)
-            if [ $# -eq 0 ] || [ "$1" == "--help" ]; then
+            if [ $# -eq 0 ] || [ "$1" == "--help" ]
+            then
                 echo -e "${YELLOW}Usage: ./recycle_bin.sh delete <file/dir> [...]${NC}"
                 exit 0
             fi
@@ -1040,7 +1214,8 @@ main() {
             ;;
 
         restore)
-            if [ $# -lt 1 ]; then
+            if [ $# -lt 1 ]
+            then
                 echo -e "${RED}ERROR: No ID or filename specified to restore.${NC}"
                 exit 1
             fi
@@ -1048,7 +1223,8 @@ main() {
             ;;
 
         search)
-            if [ $# -lt 1 ]; then
+            if [ $# -lt 1 ]
+            then
                 echo -e "${RED}ERROR: No search pattern specified.${NC}"
                 exit 1
             fi
@@ -1072,7 +1248,8 @@ main() {
             ;;
 
         preview)
-            if [ $# -lt 1 ]; then
+            if [ $# -lt 1 ]
+            then
                 echo -e "${RED}ERROR: No file ID specified to preview.${NC}"
                 exit 1
             fi

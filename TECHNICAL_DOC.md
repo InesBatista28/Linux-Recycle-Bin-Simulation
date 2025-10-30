@@ -66,19 +66,19 @@ Other helper and utility functions (e.g., log_action(), generate_unique_id(), up
 +-------------------------------------------------------------+
 |      Linux Recycle Bin Simulator (recycle_bin.sh)           |
 +-------------------------------------------------------------+
-| • main()                  → Command dispatcher             |
-| • initialize_recyclebin() → Creates structure if missing   |
-| • delete_file()           → Moves files to recycle bin     |
-| • list_recycled()         → Displays current contents      |
-| • restore_file()          → Restores deleted files         |
-| • search_recycled()       → Searches items in recycle bin  |
-| • empty_recyclebin()      → Permanently removes files      |
-| • show_statistics()       → Displays usage statistics      |
-| • auto_cleanup()          → Removes files by retention rule|
-| • check_quota()           → Enforces recycle bin size limit|
-| • preview_file()          → Previews file content          |
-| • purge_corrupted()       → Removes broken metadata entries|
-| • display_help()          → Shows help and usage info      |
+| • main()                  → Command dispatcher              |
+| • initialize_recyclebin() → Creates structure if missing    |
+| • delete_file()           → Moves files to recycle bin      |
+| • list_recycled()         → Displays current contents       |
+| • restore_file()          → Restores deleted files          |
+| • search_recycled()       → Searches items in recycle bin   |
+| • empty_recyclebin()      → Permanently removes files       |
+| • show_statistics()       → Displays usage statistics       |
+| • auto_cleanup()          → Removes files by retention rule |
+| • check_quota()           → Enforces recycle bin size limit |
+| • preview_file()          → Previews file content           |
+| • purge_corrupted()       → Removes broken metadata entries |
+| • display_help()          → Shows help and usage info       |
 +-------------------------------------------------------------+
             |
             v

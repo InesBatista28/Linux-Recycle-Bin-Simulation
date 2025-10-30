@@ -1,5 +1,13 @@
 #!/bin/bash
-# Test Suite for Recycle Bin System
+#################################################
+# Script Header Comment
+# Author: Inês Batista, Maria Quinteiro
+# Date: 2025-10-30
+# Description: Test Suite for Recycle Bin System
+# Version: 2.1.
+#################################################
+
+
 SCRIPT="./recycle_bin.sh"
 TEST_DIR="test_data"
 PASS=0
