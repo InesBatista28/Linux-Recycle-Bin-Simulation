@@ -640,7 +640,14 @@ auto_cleanup() {
 
 
 ## 7. Flowcharts (ASCII)
+
+This section presents the **ASCII flowcharts** that illustrate the internal control flow of the main operations implemented in `recycle_bin.sh`.  
+While the **data flow diagrams (Section 2)** focus on how data moves between files and components, these flowcharts focus on **the logical steps and decisions** performed *inside the script itself*.
+
 ### 7.1. Delete Operation
+This flowchart illustrates how a file deletion request is processed internally.  
+The script validates the input, creates a unique identifier for each file, moves it into the recycle bin directory, and updates the metadata and log files to ensure the deletion can be reversed safely later.
+
 ```bash
 +---------------------+
 | User triggers del   |
@@ -680,5 +687,135 @@ v
 +---------------------+
 ```
 
+---
+
 ### 7.2. Restore Operation
+This flowchart shows how a deleted file is restored from the recycle bin.  
+The script locates the file’s metadata entry using its ID or name, verifies its presence, and moves it back to its original directory while cleaning up its metadata and logging the event.
+
+```bash
++---------------------+
+| User runs restore   |
+| (by ID or name)     |
++---------+-----------+
+|
+v
++---------------------+
+| Lookup in metadata  |
+| for matching entry  |
++---------+-----------+
+|
+v
++---------------------+
+| Verify file exists  |
+| in recycle_bin/files|
++---------+-----------+
+|
+v
++---------------------+
+| Recreate original   |
+| directory structure |
++---------+-----------+
+|
+v
++---------------------+
+| Move file back to   |
+| original location   |
++---------+-----------+
+|
+v
++---------------------+
+| Update metadata.db  |
+| and log RESTORE     |
++---------+-----------+
+|
+v
++---------------------+
+| Operation Complete  |
++---------------------+
+```
+
+---
+
+### 7.3. Search Operation
+This flowchart represents how the system searches for deleted files.  
+The command queries the metadata database (`metadata.db`) using a keyword or pattern, filters the results, and displays a structured summary of matching entries.
+
+```bash
++----------------------+
+| User runs search     |
+| (pattern or name)    |
++----------+-----------+
+|
+v
++----------------------+
+| Read metadata.db     |
++----------+-----------+
+|
+v
++----------------------+
+| Filter entries by    |
+| pattern (grep/awk)   |
++----------+-----------+
+|
+v
++----------------------+
+| Display matches in   |
+| formatted output     |
++----------+-----------+
+|
+v
++----------------------+
+| Operation Complete   |
++----------------------+
+```
+
+---
+
+### 7.4. Empty / Cleanup Operation
+This flowchart outlines how the system automatically or manually cleans up the recycle bin.  
+It loads configuration parameters (e.g., maximum size, retention days), iterates over metadata entries, and permanently removes expired or oversized files while keeping the database and logs consistent.
+
+```bash
++-----------------------+
+| User or cron triggers |
+| empty/cleanup action  |
++-----------+-----------+
+|
+v
++-----------------------+
+| Load config (size &   |
+| retention policy)     |
++-----------+-----------+
+|
+v
++-----------------------+
+| Iterate metadata.db   |
+| entries               |
++-----------+-----------+
+|
+v
++-----------------------+
+| Check if expired or   |
+| exceeds size limit    |
++-----------+-----------+
+|               |
+|               |
+v               v
++-----------+ +----------------+
+| Keep file | | Delete file &  |
+| (not due) | | update metadata|
++-----------+ +----------------+
+|
+v
++------------------------+
+| Log [CLEANUP] action   |
++-----------+------------+
+|
+v
++------------------------+
+| Operation Complete     |
++------------------------+
+```
+
 
