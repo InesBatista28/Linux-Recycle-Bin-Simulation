@@ -812,6 +812,12 @@ show_statistics() {
   echo -e "${YELLOW}==============================${NC}"
 }
 
+#################################################
+# Function: AUto Cleanup
+# Description: 
+# Parameters: 
+# Returns: 
+#################################################
 auto_cleanup() {
   initialize_recyclebin
 

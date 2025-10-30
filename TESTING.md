@@ -260,8 +260,9 @@ Maria Quinteiro, 124996
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
-
+**Screenshots:**  
+![Restore to Non-existent Original Path](screenshots/Restore_Non-existent1.png) 
+![Restore to Non-existent Original Path](screenshots/Restore_Non-existent2.png) 
 ---
 
 ### Test Case 11: Empty Entire Recycle Bin  
@@ -362,8 +363,8 @@ Maria Quinteiro, 124996
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
-
+**Screenshots:** 
+![Search Non-Existing File](screenshots/Search_NonExistent.png)
 ---
 
 
@@ -459,8 +460,8 @@ Maria Quinteiro, 124996
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
-
+**Screenshots:** 
+![Restore Non-Existent ID](screenshots/Restore_Non_ID.png)
 ---
 
 ### Test Case 19: Handle Filenames with Spaces 
@@ -472,16 +473,16 @@ Maria Quinteiro, 124996
 2. Delete it.
 
 **Expected Result:**  
-- Error message “No matching entry found”  
+- File is created and deleted successfully without any errors.  
 
 **Actual Result:**  
-- Printed in red  
-- Logged as ERROR  
+- File handled correctly.  
+- No errors displayed or logged. 
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable] 
-
+**Screenshots:**
+ ![Handle Filenames with Spaces](screenshots/File_Spaces.png)
 ---
 
 ### Test Case 20: Handle Filenames with Special Characters  
@@ -507,7 +508,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 21: Handle Very Long Filenames (>255 chars)  
+### Test Case 21: Handle Very Long Filenames (>255 chars) {{{NAO TA FEITOOOOOOOOOOO!!!!!!!!!!! ]]]]
 
 **Objective:** Verify deletion and restoration of long filenames.  
 
@@ -525,8 +526,8 @@ Maria Quinteiro, 124996
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
-
+**Screenshots:** 
+![Handle Long Filenames](screenshots/VeryLong.png) 
 ---
 
 ### Test Case 22: Handle Very Large Files (>100MB)  
@@ -593,27 +594,27 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 25: Delete Files from Different Directories  
+   ### Test Case 25: Delete Files from Different Directories  
 
-**Objective:** Delete files from different absolute paths.  
+   **Objective:** Delete files from different absolute paths.  
 
-**Steps:**  
-1. Create `/tmp/a.txt` and `~/b.txt`  
-2. Run: `./recycle_bin.sh delete /tmp/a.txt ~/b.txt`  
+   **Steps:**  
+   1. Create `/tmp/a.txt` and `~/b.txt`  
+   2. Run: `./recycle_bin.sh delete /tmp/a.txt ~/b.txt`  
 
-**Expected Result:**  
-- Both moved and metadata includes full paths  
+   **Expected Result:**  
+   - Both moved and metadata includes full paths  
 
-**Actual Result:**  
-- Successful  
+   **Actual Result:**  
+   - Successful  
 
-**Status:** ☑ Pass  
+   **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
+   **Screenshots:** 
+![Delete Files from Different Directories](screenshots/Files_Dif_Dir.png) 
+   ---
 
----
-
-### Test Case 26: Restore Files to Read-only Directories  
+### Test Case 26: Restore Files to Read-only Directories   {{{NAO TA FEITOOOOOOOOOOO!!!!!!!!!!! ]]]]
 
 **Objective:** Test restoring files when destination is read-only.  
 
@@ -673,10 +674,10 @@ Run: `./recycle_bin.sh unknown`
 **Status:** ☑ Pass  
 
 **Screenshots:** [If applicable]  
+![Missing Parameters](screenshots/Missing_P.png) 
 
----
 
-### Test Case 29: Corrupted Metadata File  
+### Test Case 29: Corrupted Metadata File  {{{NAO TA FEITOOOOOOOOOOO!!!!!!!!!!! ]]]]
 
 **Objective:** Verify behavior with corrupted metadata.  
 
