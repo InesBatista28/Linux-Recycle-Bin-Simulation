@@ -4,16 +4,87 @@ It replicates the behavior of a recycle bin, allowing users to delete, restore, 
 
 The system uses a hidden directory `~/.recycle_bin` containing structured subfolders and metadata to track deleted items safely.
 
+**Date:** 2025-10-30
+
 ## Authors
 Inês Batista, 124877<br>
 Maria Quinteiro, 124996
 
 ## 1. System Architecture
-### 1.1. Directory Structure
+### 1.1. Project Directory Structure
+The project directory represents how the development and documentation files are organized in the local repository.
+
+```bash
+LINUX-RECYCLE-BIN-SIMULATION/
+├── recycle_bin.sh 
+├── test_suite.sh 
+├── README.md 
+├── TECHNICAL_DOC.md 
+├── TESTING.md 
+├── screenshots/ 
+└── ~/.recycle_bin/ # Diretório oculto criado no sistema do utilizador
+```
+
+**Description:**
+- `recycle_bin.sh` — Implements all main functionalities of the recycle bin simulator.  
+- `test_suite.sh` — Runs automated tests for core operations.  
+- `README.md` — Provides introduction, installation, and usage information.  
+- `TECHNICAL_DOC.md` — Contains the system’s architecture and technical details.  
+- `TESTING.md` — Includes manual and automated test reports.  
+- `screenshots/` — Stores images for documentation purposes.  
+- `~/.recycle_bin/` — Automatically created at runtime by the simulator script.
+
+---
+
+### 1.2. Runtime Directory Structure
+When the simulator runs for the first time, it automatically creates the following structure inside the user’s home directory:
+
+```bash
+$HOME/.recycle_bin/
+├── files/ 
+├── metadata.db 
+├── config 
+└── recyclebin.log 
+```
+
+**Details:**
+- `files/` — Contains deleted files renamed with unique identifiers.  
+- `metadata.db` — Records original attributes (name, path, date, size, etc.).  
+- `config` — Stores configuration parameters set by the user.  
+- `recyclebin.log` — Logs all performed operations and potential errors.
+
+---
 
 
-### 1.2. ASCII Architecture Diagram
-
+### 1.3. ASCII Architecture Diagram
+```bash
++-------------------------------------------------------------+
+|      Linux Recycle Bin Simulator (recycle_bin.sh)           |
++-------------------------------------------------------------+
+|  • main()                 → Command dispatcher              |
+|  • initialize_recyclebin() → Creates structure if missing   |
+|  • delete_file()           → Moves files to recycle bin     |
+|  • list_recycled()         → Displays current contents      |
+|  • restore_file()          → Restores deleted files         |
+|  • search_recycled()       → Searches items in recycle bin  |
+|  • empty_recyclebin()      → Permanently removes files      |
+|  • show_statistics()       → Displays usage statistics      |
+|  • auto_cleanup()          → Removes files by retention rule|
+|  • check_quota()           → Enforces recycle bin size limit|
+|  • preview_file()          → Previews file content          |
+|  • purge_corrupted()       → Removes broken metadata entries|
++-------------------------------------------------------------+
+            |
+            v
++-------------------------------------------------------------+
+|      ~/.recycle_bin/ (Runtime Directory)                    |
++-------------------------------------------------------------+
+|  files/         → Deleted files                             |
+|  metadata.db    → Metadata database                         |
+|  config         → User config                               |
+|  recyclebin.log → Operation logs                            |
++-------------------------------------------------------------+
+```
 
 ## 2. Data Flow Diagrams
 ### 2.1. Delete Operation
