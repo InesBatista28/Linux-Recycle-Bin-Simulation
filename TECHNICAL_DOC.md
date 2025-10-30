@@ -440,18 +440,245 @@ Understanding these decisions helps clarify why the system behaves the way it do
 
 
 ## 6. Algorithm Explanations
-### 6.1. Deletion Algorithm
 
+This section provides a conceptual overview of the algorithms that implement the key operations in the **Linux Recycle Bin Simulator**.  
+Each algorithm corresponds directly to a **data flow diagram** described earlier in **Section 2**, which visually represents the same process in greater detail.
+
+To avoid redundancy, this section focuses on **high-level logic and design goals**, while referencing the appropriate diagrams for full operational context.
+
+### 6.1. Deletion Algorithm
+The Deletion Algorithm governs how files are safely moved to the recycle bin instead of being permanently removed.  
+It ensures data integrity, traceability, and consistency between the filesystem and metadata.
+
+- **Related Data Flow:** See [Section 2.1 – Delete Operation](#21-delete-operation).  
+- **Purpose:** Capture and preserve deleted files securely with full metadata registration.  
+- **Core Steps:**  
+  1. Validate user input and file accessibility.  
+  2. Assign unique IDs and move files to `~/.recycle_bin/files/`.  
+  3. Record file details in `metadata.db`.  
+  4. Log the operation in `recyclebin.log`.  
+- **Design Goal:** Guarantee that no user data is lost until explicitly purged.
+
+#### Pseudocode
+```bash
+delete_file() {
+    for file in "$@"; do
+        # Validate input
+        if [[ ! -e "$file" ]]; then
+            echo "Warning: File not found -> $file"
+            continue
+        fi
+
+        # Ensure recycle bin structure exists
+        mkdir -p "$HOME/.recycle_bin/files"
+
+        # Generate a unique ID (timestamp + random)
+        id="$(date +%s)_$RANDOM"
+
+        # Target path inside recycle bin
+        target="$HOME/.recycle_bin/files/$id"
+
+        # Move file to recycle bin
+        mv "$file" "$target" 2>/dev/null
+
+        if [[ $? -eq 0 ]]; then
+            # Append entry to metadata
+            echo "$id|$file|$(date +'%Y-%m-%d %H:%M:%S')|$(stat -c%s "$target")" >> "$HOME/.recycle_bin/metadata.db"
+            # Log action
+            echo "$(date +'%F %T') [DELETE] $file → $id" >> "$HOME/.recycle_bin/recyclebin.log"
+        else
+            echo "Error: Failed to move $file"
+        fi
+    done
+}
+```
+
+---
 
 ### 6.2. Restore Algorithm
+The Restore Algorithm retrieves deleted files from the recycle bin and places them back in their original or user-specified location.
 
+- **Related Data Flow:** See [Section 2.2 – Restore Operation](#22-restore-operation).  
+- **Purpose:** Revert the deletion process with metadata validation.  
+- **Core Steps:**  
+  1. Look up the file ID or name in `metadata.db`.  
+  2. Move the file from `files/` back to its original location.  
+  3. Remove its metadata record and log the restoration.  
+- **Design Goal:** Provide seamless file recovery while maintaining log accuracy.
+
+#### Pseudocode
+```bash
+restore_file() {
+    local id="$1"
+    local metadata_file="$HOME/.recycle_bin/metadata.db"
+
+    # Look up entry in metadata
+    local entry
+    entry=$(grep "^$id|" "$metadata_file")
+
+    if [[ -z "$entry" ]]; then
+        echo "Error: No entry found for ID $id"
+        return 1
+    fi
+
+    # Parse original path
+    local original_path
+    original_path=$(echo "$entry" | cut -d'|' -f2)
+    local file_path="$HOME/.recycle_bin/files/$id"
+
+    # Recreate directory if needed
+    mkdir -p "$(dirname "$original_path")"
+
+    # Move file back
+    if mv "$file_path" "$original_path"; then
+        # Remove metadata entry
+        grep -v "^$id|" "$metadata_file" > "$metadata_file.tmp" && mv "$metadata_file.tmp" "$metadata_file"
+        # Log action
+        echo "$(date +'%F %T') [RESTORE] $id → $original_path" >> "$HOME/.recycle_bin/recyclebin.log"
+        echo "Restored: $original_path"
+    else
+        echo "Error: Failed to restore $id"
+    fi
+}
+```
+
+---
 
 ### 6.3. Search Algorithm
+The Search Algorithm provides a way to locate files currently in the recycle bin based on name, pattern, or date range.
+
+- **Related Data Flow:** See [Section 2.3 – Search Operation](#23-search-operation).  
+- **Purpose:** Query metadata to display relevant entries without modifying system state.  
+- **Core Steps:**  
+  1. Parse search parameters and filters.  
+  2. Scan `metadata.db` for matches.  
+  3. Display results in a structured format.  
+- **Design Goal:** Efficient, read-only search across all deleted file records.
+
+#### Pseudocode
+```bash
+search_recycled() {
+    local pattern="$1"
+    local metadata_file="$HOME/.recycle_bin/metadata.db"
+
+    if [[ -z "$pattern" ]]; then
+        echo "Usage: search_recycled <pattern>"
+        return 1
+    fi
+
+    echo "Search results for pattern: '$pattern'"
+    echo "------------------------------------------------"
+
+    local matches
+    matches=$(grep -i "$pattern" "$metadata_file")
+
+    if [[ -n "$matches" ]]; then
+        echo "$matches" | awk -F'|' '{ printf "ID: %s | File: %s | Deleted: %s | Size: %s bytes\n", $1, $2, $3, $4 }'
+    else
+        echo "No matches found."
+    fi
+}
+```
+
+---
+
+### 6.4. Cleanup Algorithm
+The Cleanup Algorithm (used in both manual and automatic modes) permanently removes expired or oversized files from the recycle bin.
+
+- **Related Data Flow:** See [Section 2.4 – Empty / Cleanup Operation](#24-empty--cleanup-operation).  
+- **Purpose:** Maintain storage efficiency and enforce retention limits.  
+- **Core Steps:**  
+  1. Load configuration (size and retention policy).  
+  2. Identify expired or excess files via `metadata.db`.  
+  3. Delete corresponding entries and files from disk.  
+  4. Log actions with `[CLEANUP]` or `[AUTO_CLEANUP]` tags.  
+- **Design Goal:** Automatically manage storage while ensuring metadata consistency.
+
+#### Pseudocode
+```bash
+auto_cleanup() {
+    local metadata_file="$HOME/.recycle_bin/metadata.db"
+    local recycle_dir="$HOME/.recycle_bin/files"
+    local retention_days=30   # Default retention (configurable)
+    local max_size_mb=500     # Default max bin size (MB)
+
+    # Load configuration if present
+    if [[ -f "$HOME/.recycle_bin/config" ]]; then
+        source "$HOME/.recycle_bin/config"
+    fi
+
+    local now
+    now=$(date +%s)
+    local freed_space=0
+    local removed_count=0
+
+    echo "Running automatic cleanup..."
+
+    while IFS='|' read -r id original_path deletion_date size; do
+        local file="$recycle_dir/$id"
+
+        # Convert deletion date to epoch seconds
+        local deletion_time
+        deletion_time=$(date -d "$deletion_date" +%s 2>/dev/null)
+
+        # Compute file age in days
+        local age=$(( (now - deletion_time) / 86400 ))
+
+        # Check expiration or missing files
+        if (( age > retention_days )) || [[ ! -f "$file" ]]; then
+            rm -f "$file"
+            freed_space=$((freed_space + size))
+            removed_count=$((removed_count + 1))
+            grep -v "^$id|" "$metadata_file" > "$metadata_file.tmp" && mv "$metadata_file.tmp" "$metadata_file"
+            echo "$(date +'%F %T') [CLEANUP] Removed $id ($original_path)" >> "$HOME/.recycle_bin/recyclebin.log"
+        fi
+    done < "$metadata_file"
+
+    echo "Cleanup complete: $removed_count files removed, freed $freed_space bytes."
+}
+```
 
 
 ## 7. Flowcharts (ASCII)
 ### 7.1. Delete Operation
-
+```bash
++---------------------+
+| User triggers del   |
++---------+-----------+
+|
+v
++---------------------+
+| Validate file(s)    |
++---------+-----------+
+|
+v
++---------------------+
+| Create .recycle_bin |
+| if not existing     |
++---------+-----------+
+|
+v
++---------------------+
+| Generate unique ID  |
++---------+-----------+
+|
+v
++---------------------+
+| Move file to ~/...  |
+| .recycle_bin/files/ |
++---------+-----------+
+|
+v
++---------------------+
+| Update metadata.db  |
+| & recyclebin.log    |
++---------+-----------+
+|
+v
++---------------------+
+| Operation Complete  |
++---------------------+
+```
 
 ### 7.2. Restore Operation
 
