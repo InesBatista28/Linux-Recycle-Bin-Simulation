@@ -874,8 +874,8 @@ auto_cleanup() {
     local RETENTION_DAYS=30
     if [ -f "$CONFIG_FILE" ]
     then
-        source "$CONFIG_FILE"
-        RETENTION_DAYS="${RETENTION_DAYS:-30}"
+      RETENTION_DAYS=$(grep -E '^RETENTION_DAYS=' "$CONFIG_FILE" | cut -d'=' -f2)
+      RETENTION_DAYS="${RETENTION_DAYS:-30}"
     else
         echo "Warning: Config file not found. Using default RETENTION_DAYS=30."
         RETENTION_DAYS=30
@@ -971,7 +971,8 @@ check_quota() {
     # Load configuration or set default
     if [ -f "$CONFIG_FILE" ]
     then
-        source "$CONFIG_FILE"
+      MAX_SIZE_MB=$(grep -E '^MAX_SIZE_MB=' "$CONFIG_FILE" | cut -d'=' -f2)
+      MAX_SIZE_MB="${MAX_SIZE_MB:-1024}"
 
 
     else
@@ -1112,20 +1113,24 @@ preview_file() {
 # Parameters: None
 # Returns:  0 if the cleanup completes successfully. Non-zero exit code if any Docker command fails.
 #################################################
+#################################################
+# Function: purge_corrupted
+# Purpose: Identifies and removes metadata entries for files that no longer exist in the recycle bin
+# Parameters: None
+# Returns: 0 on success, 1 on error
+#################################################
 purge_corrupted() {
     initialize_recyclebin
     echo -e "${YELLOW}Checking for corrupted entries...${NC}"
 
     # Check if metadata file exists and has content beyond header
-    if [ ! -f "$METADATA_FILE" ] || [ ! -s "$METADATA_FILE" ]
-    then
+    if [ ! -f "$METADATA_FILE" ] || [ ! -s "$METADATA_FILE" ]; then
         echo "No metadata found - nothing to purge."
         return 0
     fi
 
     local line_count=$(wc -l < "$METADATA_FILE" 2>/dev/null)
-    if [ "$line_count" -le 1 ]
-    then    
+    if [ "$line_count" -le 1 ]; then
         echo "Metadata file has only header - nothing to purge."
         return 0
     fi
@@ -1137,9 +1142,8 @@ purge_corrupted() {
     # Start with header
     echo "ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER" > "$tmpfile"
 
-    # Process each line in metadata (skip header)
-    tail -n +2 "$METADATA_FILE" | while IFS= read -r line
-    do
+    # Use process substitution to avoid subshell issues
+    while IFS= read -r line; do
         # Skip empty lines
         [ -z "$line" ] && continue
         
@@ -1147,8 +1151,7 @@ purge_corrupted() {
         local id=$(echo "$line" | cut -d',' -f1)
         
         # Check if the file exists in the recycle bin
-        if [ -e "$FILES_DIR/$id" ]
-        then
+        if [ -e "$FILES_DIR/$id" ]; then
             # File exists, keep the entry
             echo "$line" >> "$tmpfile"
         else
@@ -1157,13 +1160,11 @@ purge_corrupted() {
             ((missing++))
             log_msg "INFO" "Purged corrupted entry: $id"
         fi
-    done
+    done < <(tail -n +2 "$METADATA_FILE")
 
     # Only replace the metadata file if we found corrupted entries
-    if [ $missing -gt 0 ]
-    then
-        if mv "$tmpfile" "$METADATA_FILE" 2>/dev/null
-        then
+    if [ $missing -gt 0 ]; then
+        if mv "$tmpfile" "$METADATA_FILE" 2>/dev/null; then
             echo "Purged $missing corrupted entries."
             log_msg "INFO" "Purged $missing corrupted entries"
         else
@@ -1268,7 +1269,8 @@ main() {
             preview_file "$1"
             ;;
 
-        purgecorrupted|purge_corrupted)
+        # No case statement do main(), adicione:
+        purge|purgecorrupted|purge_corrupted)
             purge_corrupted
             ;;
 

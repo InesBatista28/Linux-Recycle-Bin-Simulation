@@ -40,7 +40,7 @@ Available Commands:
 * ```stats``` -	Display Recycle Bin statistics (usage, item count, capacity)
 * ```cleanup``` -	Trigger manual auto-cleanup of expired files
 * ```preview <ID>``` -	Preview a deleted file’s content or type before restoring
-* ```purge``` -	Scan for and remove corrupted or orphaned metadata entries
+* `purgecorrupted` or `purge` - Scan for and remove corrupted or orphaned metadata entries
 
 ## Features
 * Safe deletion — files are moved, not permanently removed

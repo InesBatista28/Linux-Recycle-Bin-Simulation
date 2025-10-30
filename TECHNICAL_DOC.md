@@ -358,16 +358,6 @@ Supports optional case-insensitivity and formats output similarly to `list_recyc
 > Enables efficient querying of large recycle bins. Relies on metadata and `transform_size` for display. Complements listing and restoration by helping users locate items quickly.
 
 ### 4.10. empty_recyclebin
-Permanently deletes items from the recycle bin, either all or by specific ID, with confirmation prompts unless forced.  
-
-> This operation cannot be undone. It integrates with metadata management and logging. Users should verify contents with `list_recycled` before executing.
-
-### 4.11. display_help
-Prints comprehensive help information, including usage, commands, options, examples, and configuration details.  
-
-> Acts as the built-in user guide. Essential for accessibility, ensuring users can operate the script without external documentation.
-
-### 4.12. empty_recyclebin
 This function permanently deletes items from the recycle bin, either all or by a specific ID, ensuring complete cleanup when necessary.  
 Before execution, it requests confirmation to avoid accidental data loss, unless the `--force` flag is provided, which allows non-interactive or automated cleanups.  
 When called without arguments, it empties the entire bin; when provided with an item ID, it removes only that specific entry, updating both the filesystem and the metadata database.  
@@ -375,28 +365,28 @@ It logs all operations for auditability and maintains system integrity by verify
 
 > This function provides irreversible cleanup operations, making it essential for safe and controlled space management.
 
-### 4.13. display_help
+### 4.11. display_help
 This function prints a comprehensive help guide that lists all available commands, options, and their usage examples.  
 It details configuration parameters, command syntax, and expected behavior, ensuring users can operate the recycle bin system confidently without external documentation.  
 This built-in help system makes the script self-documenting and accessible for both beginners and advanced users, acting as a quick reference tool directly from the command line.
 
 > This function ensures accessibility and self-documentation by serving as the integrated manual of the recycle bin system.
 
-### 4.14. show_statistics
+### 4.12. show_statistics
 This function displays summarized statistics about the recycle bin’s current state, providing an overview of total items, total space used, number of files and directories, and capacity utilization.  
 It may also include the oldest and most recent deletions, giving insight into storage patterns and cleanup needs.  
 By converting raw byte data into readable formats and combining totals from metadata, it allows users or administrators to monitor usage and plan maintenance proactively.
 
 > This function delivers a clear, data-driven view of the recycle bin’s condition, supporting informed maintenance decisions.
 
-### 4.15. auto_cleanup
+### 4.13. auto_cleanup
 This function automatically removes files that exceed the configured retention period (`RETENTION_DAYS`), ensuring the recycle bin doesn’t grow uncontrollably over time.  
 It reads the policy from the configuration file, checks each entry in the metadata database, and deletes expired items, updating logs and metadata accordingly.  
 This automation promotes efficiency and prevents manual intervention, especially in systems that handle frequent deletions or have limited disk space.
 
 > This function enforces retention policies, maintaining stability and efficiency through automated cleanup.
 
-### 4.16. check_quota
+### 4.14. check_quota
 This function checks the recycle bin’s total disk usage against the configured quota (`MAX_SIZE_MB`) to ensure it doesn’t exceed its storage limit.  
 It calculates the total occupied space, compares it to the defined threshold, and warns the user when capacity is close to full.  
 If necessary, it can trigger the `auto_cleanup` process to free space automatically, preventing failures in future deletion or restoration operations.
@@ -411,7 +401,12 @@ Each preview attempt is logged for accountability and traceability.
 
 > This function enhances usability and safety by letting users confirm a file’s identity before restoration.
 
-### 4.16. main
+### 4.16. purge_corrupted
+This function scans the metadata database for entries that reference files no longer present in the recycle bin's storage directory. It identifies and removes these orphaned or corrupted entries, maintaining the integrity and consistency of the recycle bin system. The function logs all removed entries and provides a summary of the cleanup operation.
+
+> This function ensures long-term data consistency by automatically detecting and resolving metadata-file mismatches, preventing potential restoration errors and system corruption.
+
+### 4.17. main
 This function serves as the core entry point and orchestrator of the entire recycle bin system.  
 It parses command-line arguments, validates commands, and calls the corresponding function (e.g., `delete_file`, `list_recycled`, `restore_file`, etc.).  
 The `main` function ensures structured execution flow, consistent user feedback, and error handling for invalid or incomplete commands.  
