@@ -288,8 +288,8 @@ Maria Quinteiro, 124996
 
 **Status:** ☑ Pass ☐ Fail
 
-**Screenshots:** [If applicable]
-
+**Screenshots:** 
+![Empty](screenshots/Empty.png) 
 ---
 
 ### Test Case 12: Empty Recycle Bin (Single Item)
@@ -508,7 +508,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 21: Handle Very Long Filenames (>255 chars) {{{NAO TA FEITOOOOOOOOOOO!!!!!!!!!!! ]]]]
+### Test Case 21: Handle Very Long Filenames (>255 chars) {{{NAO TA ACABADOOOO!!!!!!!!!!! ]]]]
 
 **Objective:** Verify deletion and restoration of long filenames.  
 
@@ -524,7 +524,7 @@ Maria Quinteiro, 124996
 - File handled correctly  
 - No crash  
 
-**Status:** ☑ Pass  
+**Status:** ☑ Pass  FAIL
 
 **Screenshots:** 
 ![Handle Long Filenames](screenshots/VeryLong.png) 
@@ -614,7 +614,7 @@ Maria Quinteiro, 124996
 ![Delete Files from Different Directories](screenshots/Files_Dif_Dir.png) 
    ---
 
-### Test Case 26: Restore Files to Read-only Directories   {{{NAO TA FEITOOOOOOOOOOO!!!!!!!!!!! ]]]]
+### Test Case 26: Restore Files to Read-only Directories   {{{NAO TA ACABADOO!!!!!!!!!!! ]]]]
 
 **Objective:** Test restoring files when destination is read-only.  
 
@@ -632,7 +632,7 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass  
 
 **Screenshots:** [If applicable]  
-
+![Read Only](screenshots/ReadOnly.png) 
 ---
 
 ### Test Case 27: Invalid Command Line Arguments  
@@ -677,7 +677,7 @@ Run: `./recycle_bin.sh unknown`
 ![Missing Parameters](screenshots/Missing_P.png) 
 
 
-### Test Case 29: Corrupted Metadata File  {{{NAO TA FEITOOOOOOOOOOO!!!!!!!!!!! ]]]]
+### Test Case 29: Corrupted Metadata File 
 
 **Objective:** Verify behavior with corrupted metadata.  
 
@@ -694,11 +694,11 @@ Run: `./recycle_bin.sh unknown`
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
-
+**Screenshots:**  
+![Corrupted Metadata](screenshots/Corrupted.png) 
 ---
 
-### Test Case 30: Insufficient Disk Space  
+### Test Case 30: Insufficient Disk Space  {{{NAO TA ACABADOO!!!!!!!!!!! ]]]]
 
 **Objective:** Verify that deletion stops if insufficient space in recycle bin.  
 
@@ -738,7 +738,7 @@ Run: `./recycle_bin.sh unknown`
 
 ---
 
-### Test Case 32: Attempting to Delete Recycle Bin Itself  
+### Test Case 32: Attempting to Delete Recycle Bin Itself  {{{NAO TA ACABADOO!!!!!!!!!!! ]]]]
 
 **Objective:** Prevent self-deletion of recycle bin.  
 
@@ -772,8 +772,8 @@ Run: `./recycle_bin.sh unknown`
 
 **Status:** ☑ Pass  
 
-**Screenshots:** [If applicable]  
-
+**Screenshots:** 
+![Concurrent Operations](screenshots/Concurrent.png) 
 ---
 
 ### Test Case 34: Delete 100+ Files  
