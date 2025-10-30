@@ -78,6 +78,7 @@ Other **helper and utility functions** (e.g., log_action(), generate_unique_id()
 |  • check_quota()           → Enforces recycle bin size limit|
 |  • preview_file()          → Previews file content          |
 |  • purge_corrupted()       → Removes broken metadata entries|
+|  • display_help()          → Shows help and usage info      |
 +-------------------------------------------------------------+
             |
             v
