@@ -232,7 +232,7 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail   
 
 **Screenshots:** 
-![Delete Multiple Files/Directories Screenshot](screenshots/delete_multiple_files.png)
+![Empty Recycle Bin Screenshot](screenshots/empty_recycle_bin.png)
 
 ---
 

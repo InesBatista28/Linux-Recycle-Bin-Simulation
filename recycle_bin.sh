@@ -779,12 +779,10 @@ empty_recyclebin() {
 #################################################
 display_help() {
     cat << 'EOF'
-Recycle Bin Utility Help
-
 Usage:
   ./recycle_bin.sh <command> [options] [arguments]
 
-Commands:
+Avaliable Commands:
   init                     Initialize recycle bin directory structure and configuration
   delete <path(s)>         Move file(s) or directory(ies) to recycle bin
   list [--detailed]        List recycled items in compact or detailed view
@@ -794,7 +792,7 @@ Commands:
   empty [<id>] [--force]   Permanently delete all or specific recycled items
   help, -h, --help         Display this help message
 
-Options:
+Command Line Options:
   --detailed               Show full information when listing items
   --ignore-case            Make searches case-insensitive
   --force                  Skip confirmation prompts (dangerous!)
@@ -819,15 +817,9 @@ Configuration:
   Metadata file: ~/.recycle_bin/metadata.db
   Files folder:  ~/.recycle_bin/files/
 
-Config Parameters:
+Configuration Parameters:
   MAX_SIZE_MB=1024      # Maximum total recycle bin size (in MB)
   RETENTION_DAYS=30     # Number of days before automatic cleanup
-
-Notes:
-  • Use with caution — 'empty' and '--force' permanently remove files!
-  • Restored files will regain original permissions and ownership.
-  • Logs of all operations are stored in recyclebin.log.
-
 EOF
 }
 
