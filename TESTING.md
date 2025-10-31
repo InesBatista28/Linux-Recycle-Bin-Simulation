@@ -37,20 +37,18 @@ Maria Quinteiro, 124996
 - [Test Case 27: Invalid Command Line Args](#test-case-27-invalid-command-line-arguments)  
 - [Test Case 28: Missing Required Parameters](#test-case-28-missing-required-parameters)  
 - [Test Case 29: Corrupted Metadata](#test-case-29-corrupted-metadata-file)  
-- [Test Case 30: Insufficient Disk Space](#test-case-30-insufficient-disk-space-during-delete)  
-- [Test Case 31: Insufficient Disk Space During Restore](#test-case-31-insufficient-disk-space-during-restore)  
-- [Test Case 32: Permission Denied on Recycle Bin Directory](#test-case-32-permission-denied-on-recycle-bin-directory)  
-- [Test Case 33: Attempt to Delete Recycle Bin Itself](#test-case-33-attempt-to-delete-recycle-bin-itself)  
-- [Test Case 34: Simultaneous Deletion Operations (Concurrency)](#test-case-34-simultaneous-deletion-operations-concurrency)  
-- [Test Case 35: Performance — Delete 1000 Files](#test-case-35-performance--delete-1000-files)  
-- [Test Case 36: Performance — List Large Metadata](#test-case-36-performance--list-large-metadata)  
-- [Test Case 37: Script Self-Protection](#test-case-37-script-self-protection-cannot-delete-or-restore-script-itself)  
-- [Test Case 38: Configuration File Loading](#test-case-38-configuration-file-loading)  
-- [Test Case 39: Configuration File Missing](#test-case-39-configuration-file-missing)  
-- [Test Case 40: Logging Verification](#test-case-40-logging-verification)  
-- [Test Case 41: Localization — Non-English Filenames](#test-case-41-localization--non-english-filenames)  
-- [Test Case 42: Version Command](#test-case-42-version-command)  
-- [Test Case 43: Configuration Reload Without Restart](#test-case-43-configuration-reload-without-restart)  
+- [Test Case 30: Permission Denied on Recycle Bin Directory](#test-case-30-permission-denied-on-recycle-bin-directory)  
+- [Test Case 31: Attempt to Delete Recycle Bin Itself](#test-case-31-attempt-to-delete-recycle-bin-itself)  
+- [Test Case 32: Simultaneous Deletion Operations (Concurrency)](#test-case-32-simultaneous-deletion-operations-concurrency)  
+- [Test Case 33: Performance — Delete 1000 Files](#test-case-33-performance--delete-1000-files)  
+- [Test Case 34: Performance — List Large Metadata](#test-case-34-performance--list-large-metadata)  
+- [Test Case 35: Script Self-Protection](#test-case-35-script-self-protection-cannot-delete-or-restore-script-itself)  
+- [Test Case 36: Configuration File Loading](#test-case-36-configuration-file-loading)  
+- [Test Case 37: Configuration File Missing](#test-case-37-configuration-file-missing)  
+- [Test Case 38: Logging Verification](#test-case-38-logging-verification)  
+- [Test Case 39: Localization — Non-English Filenames](#test-case-39-localization--non-english-filenames)  
+- [Test Case 40: Version Command](#test-case-40-version-command)  
+- [Test Case 41: Configuration Reload Without Restart](#test-case-41-configuration-reload-without-restart)  
 
 
 ---
@@ -567,7 +565,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 21: Handle Very Long Filenames (>255 chars) {{{NAO TA ACABADOOOO!!!!!!!!!!! ]]]]
+### Test Case 21: Handle Very Long Filenames (>255 chars)
 
 **Objective:** Verify deletion and restoration of long filenames.  
 
@@ -588,7 +586,7 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail  
 
 **Screenshots:** 
-
+![Long Name](screenshots/long_name.png) 
 
 ---
 
@@ -685,7 +683,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 26: Restore Files to Read-only Directories   {{{NAO TA ACABADOO!!!!!!!!!!! ]]]]
+### Test Case 26: Restore Files to Read-only Directories   
 
 **Objective:** Test restoring files when destination is read-only.  
 
@@ -705,7 +703,7 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail  
 
 **Screenshots:** 
-![Read Only](screenshots/ReadOnly.png) 
+![Read Only](screenshots/readOnly.png) 
 
 ---
 
@@ -776,57 +774,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 30: Insufficient Disk Space  {{{NAO TA ACABADOO!!!!!!!!!!! ]]]]
-
-**Objective:** Verify that deletion stops if insufficient space in recycle bin.  
-
-**Steps:**  
-1. Simulate low disk space using a small virtual partition or quota.
-2. Attempt to delete a large file with `./recycle_bin.sh` delete largefile.bin
-
-**Expected Result:**  
-- Operation is aborted gracefully when disk space is insufficient.
-- File remains in its original location.
-- Error message clearly states the cause.
-
-**Actual Result:**  
-- Script detected the “No space left on device” error from the OS.
-- File was not moved; original remained intact.
-- Log recorded failure under “Storage error” with disk usage percentage.
-- Exit code returned 1.
-
-**Status:** ☑ Pass ☐ Fail   
-
-**Screenshots:** [If applicable]  
-
----
-
-### Test Case 31: Insufficient Disk Space During Restore 
-
-**Objective:** Ensure that restoration stops safely when disk space is insufficient.
-
-**Steps:**  
-1. Fill the target disk close to capacity.
-2. Attempt to restore a large file using ./recycle_bin.sh restore <ID>.
-
-**Expected Result:**  
-- Restoration fails with clear error message.
-- File remains in recycle bin. 
-
-**Actual Result:**  
-- Script began restoration, detected insufficient space mid-operation, and halted.
-- Partial restoration file automatically removed.
-- Metadata entry preserved.
-- Log entry created: “Restore aborted — insufficient disk space.”
-
-**Status:** ☑ Pass ☐ Fail  
-
-**Screenshots:** 
-
-
----
-
-### Test Case 32: Permission Denied on Recycle Bin Directory  
+### Test Case 30: Permission Denied on Recycle Bin Directory  
 
 **Objective:** Test script behavior when the recycle bin directory itself lacks write permissions.
 
@@ -846,10 +794,11 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail  
 
 **Screenshots:** 
+![Permission Recycle Bin](screenshots/permisson_recycle_bin.png) 
 
 ---
 
-### Test Case 33: Attempting to Delete Recycle Bin Itself  {{{NAO TA ACABADOO!!!!!!!!!!! ]]]]
+### Test Case 31: Attempting to Delete Recycle Bin Itself 
 
 **Objective:** Ensure that the script prevents deletion of its own recycle bin directory.
 
@@ -867,11 +816,12 @@ Maria Quinteiro, 124996
 
 **Status:** ☑ Pass ☐ Fail  
 
-**Screenshots:** [If applicable]  
+**Screenshots:**
+![Delete Recycle Bin](screenshots/delete_recycle_bin.png) 
 
 ---
 
-### Test Case 34: Concurrent Operations (Run Two Instances)  
+### Test Case 32: Concurrent Operations (Run Two Instances)  
 
 **Objective:** Verify that concurrent deletion processes handle locking and metadata consistency correctly. 
 
@@ -892,11 +842,11 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail  
 
 **Screenshots:** 
-
+![Delete Recycle Bin](screenshots/2_instances.png) 
 
 ---
 
-### Test Case 35: Delete 100+ Files  
+### Test Case 33: Delete 100+ Files  
 
 **Objective:** Test performance with large batch deletion.  
 
@@ -923,7 +873,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 36: List Recycle Bin with 100+ Items  
+### Test Case 34: List Recycle Bin with 100+ Items  
 
 **Objective:** Verify listing performance.  
 
@@ -948,7 +898,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 37: Search in Large Metadata File  
+### Test Case 35: Search in Large Metadata File  
 
 **Objective:** Confirm that searching remains efficient with large metadata.  
 
@@ -971,7 +921,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 38: Restore from bin with many items
+### Test Case 36: Restore from bin with many items
 
 **Objective:** Verify that multiple files can be restored from a recycle bin containing many items, and that metadata is correctly updated. 
 
@@ -1000,7 +950,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 39: Configuration File Loading
+### Test Case 37: Configuration File Loading
 
 **Objective:** Verify that the script correctly reads configuration values from the ~/.recycle_bin/config file.
 
@@ -1026,7 +976,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 40: Configuration File Missing
+### Test Case 38: Configuration File Missing
 
 **Objective:** Ensure the script recreates a default configuration file when it is missing.
 
@@ -1049,7 +999,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 41: Logging Verification
+### Test Case 39: Logging Verification
 
 **Objective:** Confirm that all operations generate correct and timestamped entries in recyclebin.log.
 
@@ -1076,7 +1026,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 42: Localization — Non-English Filenames
+### Test Case 40: Localization — Non-English Filenames
 
 **Objective:** Verify that filenames containing Unicode characters (e.g., accented letters, non-Latin scripts) are handled correctly.
 
@@ -1100,7 +1050,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 43: Version Command
+### Test Case 41: Version Command
 
 **Objective:** Ensure that the version command displays script version and author information accurately.
 

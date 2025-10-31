@@ -1208,32 +1208,60 @@ purge_corrupted() {
 #################################################
 main() {
 
-  initialize_recyclebin
+    # ===============================
+    # 1️⃣ Verificar e criar estrutura da reciclagem
+    # ===============================
+
+    if [ ! -d "$RECYCLE_BIN_DIR" ]; then
+        echo "A criar estrutura inicial da reciclagem em $RECYCLE_BIN_DIR ..."
+        mkdir -p "$FILES_DIR"
+
+        # Criar ficheiros essenciais
+        echo "ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER" > "$METADATA_FILE"
+        echo "MAX_SIZE_MB=1024" > "$CONFIG_FILE"
+        echo "RETENTION_DAYS=30" >> "$CONFIG_FILE"
+        touch "$LOG_FILE"
+
+        echo "Estrutura da reciclagem criada com sucesso."
+    fi
+
+    # Garantir permissões seguras
+    chmod 700 "$RECYCLE_BIN_DIR" "$FILES_DIR" 2>/dev/null
+
+
     exec 200>"$RECYCLE_BIN_DIR/lockfile" || exit 1
-    flock -n 200 || { echo "Script already running. Exiting."; exit 1; }
+    flock -n 200 || {
+        echo -e "${RED}Script já em execução. A sair.${NC}"
+        exit 1
+    }
     trap 'flock -u 200; rm -f "$RECYCLE_BIN_DIR/lockfile"' EXIT
 
 
-    # Check if at least one argument is provided
-    if [ $# -lt 1 ]
-    then
-        echo -e "${RED}ERROR: No command specified.${NC}"
-        echo "Use './recycle_bin.sh help' to see available commands."
+
+    if [ $# -lt 1 ]; then
+        echo -e "${RED}ERRO: Nenhum comando especificado.${NC}"
+        echo "Use './recycle_bin.sh help' para ver comandos disponíveis."
         exit 1
     fi
 
     local command="$1"
-    shift  # Remove the command from the arguments list
+    shift  # remover o comando da lista de argumentos
+
+
 
     case "$command" in
+
         help|-h|--help)
             display_help
             ;;
 
+        init)
+            initialize_recyclebin
+            ;;
+
         delete)
-            if [ $# -eq 0 ] || [ "$1" == "--help" ]
-            then
-                echo -e "${YELLOW}Usage: ./recycle_bin.sh delete <file/dir> [...]${NC}"
+            if [ $# -eq 0 ] || [ "$1" == "--help" ]; then
+                echo -e "${YELLOW}Uso: ./recycle_bin.sh delete <ficheiro/pasta> [...]${NC}"
                 exit 0
             fi
             delete_file "$@"
@@ -1244,18 +1272,16 @@ main() {
             ;;
 
         restore)
-            if [ $# -lt 1 ]
-            then
-                echo -e "${RED}ERROR: No ID or filename specified to restore.${NC}"
+            if [ $# -lt 1 ]; then
+                echo -e "${RED}ERRO: Nenhum ID ou nome especificado para restaurar.${NC}"
                 exit 1
             fi
             restore_file "$1"
             ;;
 
         search)
-            if [ $# -lt 1 ]
-            then
-                echo -e "${RED}ERROR: No search pattern specified.${NC}"
+            if [ $# -lt 1 ]; then
+                echo -e "${RED}ERRO: Nenhum termo de pesquisa especificado.${NC}"
                 exit 1
             fi
             search_recycled "$@"
@@ -1268,47 +1294,41 @@ main() {
         stats|statistics)
             show_statistics
             ;;
-        
+
         cleanup|auto-cleanup)
             auto_cleanup
-            ;;           
-            
+            ;;
+
         quota|check-quota)
             check_quota
             ;;
 
         preview)
-            if [ $# -lt 1 ]
-            then
-                echo -e "${RED}ERROR: No file ID specified to preview.${NC}"
+            if [ $# -lt 1 ]; then
+                echo -e "${RED}ERRO: Nenhum ID especificado para pré-visualizar.${NC}"
                 exit 1
             fi
             preview_file "$1"
             ;;
 
-        # No case statement do main(), adicione:
         purge|purgecorrupted|purge_corrupted)
             purge_corrupted
             ;;
 
-        auto_cleanup|autoclean)
-            auto_cleanup
-            ;;
-
-        version)
+        version|--version|-v)
             show_version
             ;;
 
-
         *)
-            echo -e "${RED}ERROR: Unknown command: $command${NC}"
-            echo "Use './recycle_bin.sh help' to see available commands."
+            echo -e "${RED}ERRO: Comando desconhecido '${command}'.${NC}"
+            echo "Use './recycle_bin.sh help' para ver a lista de comandos disponíveis."
             exit 1
             ;;
-
-
     esac
+
+    flock -u 200
+    rm -f "$RECYCLE_BIN_DIR/lockfile"
 }
 
-
+# Executar main se o script for chamado diretamente
 main "$@"
