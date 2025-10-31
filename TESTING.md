@@ -14,7 +14,7 @@ Maria Quinteiro, 124996
 - [Test Case 2: Initialization of Recycle Bin](#test-case-2-initialization-of-recycle-bin)  
 - [Test Case 3: Delete Single File](#test-case-3-delete-single-file)  
 - [Test Case 4: Delete Multiple Files or Directories](#test-case-4-delete-multiple-files-or-directories)  
-- [Test Case 5: Delete Em  pty Directory](#test-case-5-delete-empty-directory)  
+- [Test Case 5: Delete Empty Directory](#test-case-5-delete-empty-directory)  
 - [Test Case 6: Delete Directory with Contents (Recursive)](#test-case-6-delete-directory-with-contents-recursive)  
 - [Test Case 7: List Empty Recycle Bin](#test-case-7-list-empty-recycle-bin)  
 - [Test Case 8: List Recycle Bin with Items](#test-case-8-list-recycle-bin-with-items)  
@@ -50,7 +50,13 @@ Maria Quinteiro, 124996
 - [Test Case 38: Configuration File Missing](#test-case-38-configuration-file-missing)  
 - [Test Case 39: Logging Verification](#test-case-39-logging-verification)  
 - [Test Case 40: Localization — Non-English Filenames](#test-case-40-localization--non-english-filenames)  
-- [Test Case 41: Version Command](#test-case-41-version-command)
+- [Test Case 41: Version Command](#test-case-41-version-command)  
+- [Test Case 42: show_statistics — Empty Recycle Bin](#test-case-42-show_statistics--empty-recycle-bin)  
+- [Test Case 43: show_statistics — Populated Recycle Bin](#test-case-43-show_statistics--populated-recycle-bin)  
+- [Test Case 44: auto_cleanup — Default Retention Period](#test-case-44-auto_cleanup--default-retention-period)  
+- [Test Case 45: check_quota — Exceeds Configured Quota](#test-case-45-check_quota--exceeds-configured-quota)  
+- [Test Case 46: preview_file — Text File Preview](#test-case-46-preview_file--text-file-preview)  
+- [Test Case 47: purge_corrupted — Missing Data Files](#test-case-47-purge_corrupted--missing-data-files)
 
 ---
 
@@ -1074,6 +1080,157 @@ Maria Quinteiro, 124996
 
 **Screenshots:** 
 ![Version Command](screenshots/version.png)
+
+---
+
+### Test Case 42: show_statistics - Empty recycle bin
+
+**Objective:** Verify that the function correctly reports when no data exists.
+
+**Steps:**
+1. Initialize the recycle bin using ./recycle_bin.sh init.
+2. Ensure the metadata file exists but only contains the header line.
+3. Execute the command: `./recycle_bin.sh stats`
+
+**Expected Result:**
+- The script prints Recycle bin is empty.
+- Log file contains STATS No data to display.
+- Exit code is 0.
+
+**Actual Result:**
+- Function behaves as expected — outputs correct message and returns successfully when no data is available.
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:**
+![Statistics Empty Recycle Bin](screenshots/stats_empty.png)
+
+---
+
+### Test Case 43: show_statistics — Populated recycle bin
+
+**Objective:** Verify that aggregated statistics are displayed correctly when files exist in the recycle bin.
+
+**Steps:**
+1. Delete at least three files using the delete command.
+2. Confirm their entries appear in the metadata file.
+3. Run: `./recycle_bin.sh stats`
+
+**Expected Result:**
+- Output includes Recycle Bin Statistics.
+- Shows total items (e.g., Total items: 3).
+- Displays total size in human-readable form.
+- Log entry STATS Displayed statistics: 3 items, <total_size>B.
+- Exit code 0.
+
+**Actual Result:**
+- Statistics printed correctly with accurate item count, total size, and proper logging.
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:**
+![Statistics Files](screenshots/stats_files.png)
+
+---
+
+### Test Case 44: auto_cleanup — Default retention period
+
+**Objective:** Validate that old items are automatically deleted based on the default 30-day retention period when no configuration file exists.
+
+**Steps:**
+1. Add several entries to the metadata file with deletion dates older than 45 days.
+2. Ensure the corresponding files exist in $FILES_DIR.
+3. Delete or rename the configuration file to simulate missing config.
+4. Run: `./recycle_bin.sh cleanup`
+
+**Expected Result:**
+- Displays warning: ```Warning: Config file not found. Using default RETENTION_DAYS=30.```
+- Shows cleanup summary including number of items deleted and space freed.
+- Log entries include CLEANUP_DELETE: for each removed item and a CLEANUP_SUMMARY: line.
+- Exit code 0.
+
+**Actual Result:**
+- Items older than 30 days deleted successfully. Summary and log outputs are consistent with expectations.
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:**
+![AUTO CLEAN](screenshots/autoclean.png)
+
+---
+
+### Test Case 45: check_quota — Exceeds configured quota
+
+**Objective:** Verify that quota warnings and automatic cleanup are triggered when usage exceeds the configured limit.
+
+**Steps:**
+1. Set MAX_SIZE_MB=1 in the configuration file.
+2. Add files to the recycle bin so that total size exceeds 1 MB.
+3. Run: `./recycle_bin.sh quota`
+
+**Expected Result:**
+- Output includes: `Recycle Bin Quota Status / WARNING: Recycle bin exceeds quota limit! / Triggering automatic cleanup...`
+- The function automatically calls auto_cleanup().
+- Log file records QUOTA_WARN: and CLEANUP_* entries.
+- Exit code 0.
+
+**Actual Result:**
+- Quota exceeded message displayed, automatic cleanup initiated, and logs generated successfully.
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:**
+![quota](screenshots/check_quota.png)
+
+---
+
+### Test Case 46: preview_file — Text file preview
+
+**Objective:** Confirm that text files are previewed correctly, showing the first 10 lines of content.
+
+**Steps:**
+1. Delete a .txt file to send it to the recycle bin.
+2. Use ./recycle_bin.sh list to obtain the file’s ID.
+3. Execute: `./recycle_bin.sh preview <file_id>`
+
+**Expected Result:**
+- Output starts with Preview of: <original_name>.
+- Displays the first 10 lines of the text file followed by (Showing first 10 lines).
+- Log entry PREVIEW_OK: <original_name> (<id>) type=text/*.
+- Exit code 0.
+
+**Actual Result:**
+- Text files previewed correctly, limited to 10 lines. Non-text files handled gracefully with type information shown.
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:**
+![file-preview](screenshots/file_preview.png)
+
+---
+
+### Test Case 47: purge_corrupted — Missing data files
+
+**Objective:** Ensure that metadata entries without corresponding files are detected and removed.
+
+**Steps:**
+1. Manually delete some files from $FILES_DIR while keeping their entries in the metadata file.
+2. Run: `./recycle_bin.sh purge`
+3. Inspect updated metadata and logs.
+
+**Expected Result:**
+- Output includes: `hecking for corrupted entries... / Removed corrupted entry for missing ID: <id> / Purged <n> corrupted entries.`
+- Metadata file rewritten without missing entries.
+- Log entries contain INFO Purged corrupted entry:.
+- Exit code 0.
+
+**Actual Result:**
+- Corrupted entries successfully detected and removed. Metadata integrity restored and logs updated as expected.
+
+**Status:** ☑ Pass ☐ Fail
+
+**Screenshots:**
+![purge](screenshots/purge.png)
 
 
 

@@ -14,10 +14,12 @@ The system maintains a metadata database, log file, configurable policies, and q
    ```bash
    git clone https://github.com/InesBatista28/Linux-Recycle-Bin-Simulation.git
    cd Linux-Recycle-Bin-Simulation
+   ```
 
 2. Ensure the main script is executable:
     ```bash
     chmod +x recycle_bin.sh
+    ```
 
 3. Add to your PATH for global use:
     ```bash
@@ -41,7 +43,7 @@ Available Commands:
 * ```stats``` -	Display Recycle Bin statistics (usage, item count, capacity)
 * ```cleanup``` -	Trigger manual auto-cleanup of expired files
 * ```preview <ID>``` -	Preview a deleted file’s content or type before restoring
-* `purgecorrupted` or `purge` - Scan for and remove corrupted or orphaned metadata entries
+* `purge_corrupted` or `purge` - Scan for and remove corrupted or orphaned metadata entries
 * `quota` - Display current storage quota and utilization
 
 ## Features
@@ -99,10 +101,11 @@ These parameters can be customized to adapt to different disk sizes or retention
 For detailed usage scenarios, command demonstrations, and output samples, see: [**TESTING.md**](./TESTING.md)
 
 ## Known Issues
-* Interactive prompts (e.g., during restore conflicts) require terminal input.
-* Some permission restore operations may fail on restricted filesystems.
-* Quota checks apply to the configured recycle bin only (~/.recycle_bin/), not system-wide.
-* Preview only supports plain text content for readability and safety.
+* Interactive restore conflicts require terminal input (cannot be scripted).
+* Permission restoration may fail on restricted filesystems.
+* Quota checks apply only to `$HOME/.recycle_bin`, not to system-wide trash folders.
+* File preview supports only text-based content for safety.
+* Very long filenames (>255 chars) may not be supported on all filesystems.
 
 ## References
 ```bash

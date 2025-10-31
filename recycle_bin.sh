@@ -882,18 +882,18 @@ auto_cleanup() {
     if [ ! -f "$METADATA_FILE" ]
     then
         echo "Recycle bin not initialized."
-        log_msg "CLEANUP_FAIL: Recycle bin not initialized"
+        log_msg "ERROR: Recycle bin not initialized"
         return 1
     fi
 
-
+    # Default value to prevent unbound variable error
+    local RETENTION_DAYS=30
 
     # Load configuration or fall back to 30 days
-    local RETENTION_DAYS=30
     if [ -f "$CONFIG_FILE" ]
     then
-      RETENTION_DAYS=$(grep -E '^RETENTION_DAYS=' "$CONFIG_FILE" | cut -d'=' -f2)
-      RETENTION_DAYS="${RETENTION_DAYS:-30}"
+        RETENTION_DAYS=$(grep -E '^RETENTION_DAYS=' "$CONFIG_FILE" | cut -d'=' -f2)
+        RETENTION_DAYS="${RETENTION_DAYS:-30}"
     else
         echo "Warning: Config file not found. Using default RETENTION_DAYS=30."
         RETENTION_DAYS=30
@@ -903,8 +903,7 @@ auto_cleanup() {
     if [ "$(wc -l < "$METADATA_FILE")" -le 1 ]
     then
         echo "Recycle bin is empty — nothing to clean."
-        log_msg "CLEANUP_SKIP: Recycle bin empty"
-
+        log_msg "INFO: Recycle bin empty"
         return 0
     fi
 
@@ -912,49 +911,40 @@ auto_cleanup() {
     local cutoff_ts
     cutoff_ts=$(date -d "-${RETENTION_DAYS} days" +%s)
 
-
-
     local deleted_count=0
     local freed_space=0
 
-
-
-
     # Iterate metadata and delete items older than cutoff
-    tail -n +2 "$METADATA_FILE" | while IFS=',' read -r id name path date size type perms owner; do
+    while IFS=',' read -r id name path date size type perms owner; do
+        # Skip header
+        [ "$id" = "ID" ] && continue
+
         # Convert deletion date into timestamp (fallback to 0 on parse error)
         file_ts=$(date -d "$date" +%s 2>/dev/null || echo 0)
 
         if (( file_ts > 0 && file_ts < cutoff_ts ))
         then
-
             if [ -e "$FILES_DIR/$id" ]
             then
-
-
                 if rm -rf "$FILES_DIR/$id" 2>/dev/null
                 then
                     ((deleted_count++))
                     ((freed_space += size))
-                    log_msg "CLEANUP_DELETE: Removed $name ($id) — older than $RETENTION_DAYS days"
-
+                    log_msg "INFO: Removed $name ($id) — older than $RETENTION_DAYS days"
                 else
-                    log_msg "CLEANUP_FAIL: Permission denied deleting $name ($id)"
+                    log_msg "ERROR: Permission denied deleting $name ($id)"
                 fi
-
-
             else
-                log_msg "CLEANUP_WARN: Missing data file for $name ($id)"
+                log_msg "ERROR: Missing data file for $name ($id)"
             fi
 
             # Remove metadata entry for the deleted item
             grep -v "^$id," "$METADATA_FILE" > "${METADATA_FILE}.tmp" && mv "${METADATA_FILE}.tmp" "$METADATA_FILE"
         fi
-    done
+    done < "$METADATA_FILE"
 
-    # Recompute summary values in a reliable manner (outside the loop)
-    deleted_count=$(grep -c "CLEANUP_DELETE" "$LOG_FILE")
-    freed_space_bytes=$(awk -F',' '{sum+=$5} END{print sum}' "$METADATA_FILE")
+    # Convert freed space to human readable
+    local human_freed
     human_freed=$(transform_size "$freed_space")
 
     # Summarize results to the user
@@ -963,8 +953,11 @@ auto_cleanup() {
     printf "%-25s %s items\n" "Items deleted:" "$deleted_count"
     printf "%-25s %s\n" "Space freed:" "$human_freed"
 
-    log_msg "CLEANUP_SUMMARY: deleted=$deleted_count freed=${freed_space}B retention=${RETENTION_DAYS}d"
+    log_msg "INFO: deleted=$deleted_count freed=${freed_space}B retention=${RETENTION_DAYS}d"
+
+    return 0
 }
+
 
 
 
@@ -1030,7 +1023,7 @@ check_quota() {
     if (( total_bytes > max_bytes ))
     then
         echo "WARNING: Recycle bin exceeds quota limit!"
-        log_msg "QUOTA_WARN: ${usage_pct}% used (limit ${MAX_SIZE_MB}MB)"
+        log_msg "ERROR: ${usage_pct}% used (limit ${MAX_SIZE_MB}MB)"
 
         # Trigger automatic cleanup if the function is defined
         if declare -F auto_cleanup >/dev/null
@@ -1041,7 +1034,7 @@ check_quota() {
 
 
     else
-        log_msg "QUOTA_OK: ${usage_pct}% used (${total_hr}/${MAX_SIZE_MB}MB)"
+        log_msg "INFO: ${usage_pct}% used (${total_hr}/${MAX_SIZE_MB}MB)"
     fi
 }
 
@@ -1076,7 +1069,7 @@ preview_file() {
     if [ -z "$entry" ]
     then
         echo "Error: No item found with ID '$id'."
-        log_msg "PREVIEW_FAIL: ID not found ($id)"
+        log_msg "ERROR: ID not found ($id)"
         return 1
     fi
 
@@ -1093,7 +1086,7 @@ preview_file() {
     if [ ! -f "$file_path" ]
     then
         echo "Error: Recycled file not found ($file_path)"
-        log_msg "PREVIEW_FAIL: Missing file for ID $id"
+        log_msg "ERROR: Missing file for ID $id"
         return 1
     fi
 
@@ -1118,7 +1111,7 @@ preview_file() {
 
 
 
-    log_msg "PREVIEW_OK: $original_name ($id) type=$ftype"
+    log_msg "INFO: $original_name ($id) type=$ftype"
 }
 
 
@@ -1139,70 +1132,60 @@ preview_file() {
 #################################################
 purge_corrupted() {
     initialize_recyclebin
-    echo -e "${YELLOW}Checking for corrupted entries...${NC}"
 
-    # Check if metadata file exists and has content beyond header
-    if [ ! -f "$METADATA_FILE" ] || [ ! -s "$METADATA_FILE" ]
-    then
-        echo "No metadata found - nothing to purge."
-        return 0
+    # Garantir que LOG_FILE está definido corretamente
+    if [ -z "$LOG_FILE" ]; then
+        LOG_FILE="$RECYCLE_BIN_DIR/recyclebin.log"
     fi
+    mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null
+    touch "$LOG_FILE"
 
-    local line_count=$(wc -l < "$METADATA_FILE" 2>/dev/null)
-    if [ "$line_count" -le 1 ]
-    then
-        echo "Metadata file has only header - nothing to purge."
+    echo -e "${YELLOW}Checking for corrupted entries...${NC}"
+    log_msg "INFO" "Started purge_corrupted check"
+
+    # Verificar existência do metadata
+    if [ ! -f "$METADATA_FILE" ] || [ ! -s "$METADATA_FILE" ]; then
+        echo "No metadata found - nothing to purge."
+        log_msg "INFO" "No metadata file found, skipping purge"
         return 0
     fi
 
     local missing=0
     local tmpfile
     tmpfile=$(mktemp 2>/dev/null || echo "/tmp/purge_$$.tmp")
-    
-    # Start with header
+
+    # Reescreve cabeçalho
     echo "ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER" > "$tmpfile"
 
-    # Use process substitution to avoid subshell issues
+    # Ler todas as entradas (ignorando o cabeçalho)
     while IFS= read -r line; do
-        # Skip empty lines
         [ -z "$line" ] && continue
-        
-        # Extract ID (first field)
-        local id=$(echo "$line" | cut -d',' -f1)
-        
-        # Check if the file exists in the recycle bin
-        if [ -e "$FILES_DIR/$id" ]
-        then
-            # File exists, keep the entry
+        local id
+        id=$(echo "$line" | cut -d',' -f1)
+
+        if [ -e "$FILES_DIR/$id" ]; then
             echo "$line" >> "$tmpfile"
         else
-            # File is missing, count as corrupted
             echo "Removed corrupted entry for missing ID: $id"
-            ((missing++))
             log_msg "INFO" "Purged corrupted entry: $id"
+            ((missing++))
         fi
     done < <(tail -n +2 "$METADATA_FILE")
 
-    # Only replace the metadata file if we found corrupted entries
-    if [ $missing -gt 0 ]
-    then
-        if mv "$tmpfile" "$METADATA_FILE" 2>/dev/null
-        then
-            echo "Purged $missing corrupted entries."
-            log_msg "INFO" "Purged $missing corrupted entries"
-        else
-            echo "Error: Failed to update metadata file."
-            log_msg "ERROR" "Failed to update metadata file during purge"
-            rm -f "$tmpfile"
-            return 1
-        fi
+    if [ $missing -gt 0 ]; then
+        mv "$tmpfile" "$METADATA_FILE"
+        echo "Purged $missing corrupted entries."
+        log_msg "INFO" "Purged $missing corrupted entries from metadata"
     else
-        echo "No corrupted entries found."
         rm -f "$tmpfile"
+        echo "No corrupted entries found."
+        log_msg "INFO" "No corrupted entries found"
     fi
-    
-    return 0
+
+    # Garantir que só ficam IDs válidos
+    grep -E '^[0-9]+' "$METADATA_FILE" > "${METADATA_FILE}.tmp" && mv "${METADATA_FILE}.tmp" "$METADATA_FILE"
 }
+
 
 
 
@@ -1213,23 +1196,10 @@ purge_corrupted() {
 # Returns: Exits with non-zero on usage errors or unknown commands
 #################################################
 main() {
-
-
-    if [ ! -d "$RECYCLE_BIN_DIR" ]
-    then
-        echo "A criar estrutura inicial da reciclagem em $RECYCLE_BIN_DIR ..."
-        mkdir -p "$FILES_DIR"
-
-        echo "ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER" > "$METADATA_FILE"
-        echo "MAX_SIZE_MB=1024" > "$CONFIG_FILE"
-        echo "RETENTION_DAYS=30" >> "$CONFIG_FILE"
-        touch "$LOG_FILE"
-
-        echo "Estrutura da reciclagem criada com sucesso."
-    fi
+    # Garantir estrutura sempre completa
+    initialize_recyclebin
 
     chmod 700 "$RECYCLE_BIN_DIR" "$FILES_DIR" 2>/dev/null
-
 
     exec 200>"$RECYCLE_BIN_DIR/lockfile" || exit 1
     flock -n 200 || {
@@ -1237,8 +1207,6 @@ main() {
         exit 1
     }
     trap 'flock -u 200; rm -f "$RECYCLE_BIN_DIR/lockfile"' EXIT
-
-
 
     if [ $# -lt 1 ]
     then
@@ -1248,92 +1216,31 @@ main() {
     fi
 
     local command="$1"
-    shift 
-
-
+    shift
 
     case "$command" in
+        help|-h|--help) display_help ;;
+        init) initialize_recyclebin ;;
+        delete) delete_file "$@" ;;
+        list) list_recycled "$@" ;;
+        restore) restore_file "$1" ;;
+        search) search_recycled "$@" ;;
+        empty) empty_recyclebin "$@" ;;
+        stats|statistics) show_statistics ;;
+        cleanup) auto_cleanup ;;
 
-        help|-h|--help)
-            display_help
-            ;;
-
-        init)
-            initialize_recyclebin
-            ;;
-
-        delete)
-            if [ $# -eq 0 ] || [ "$1" == "--help" ]; then
-                echo -e "${YELLOW}Uso: ./recycle_bin.sh delete <ficheiro/pasta> [...]${NC}"
-                exit 0
-            fi
-            delete_file "$@"
-            ;;
-
-        list)
-            list_recycled "$@"
-            ;;
-
-        restore)
-            if [ $# -lt 1 ]; then
-                echo -e "${RED}ERRO: Nenhum ID ou nome especificado para restaurar.${NC}"
-                exit 1
-            fi
-            restore_file "$1"
-            ;;
-
-        search)
-            if [ $# -lt 1 ]
-            then
-                echo -e "${RED}ERRO: Nenhum termo de pesquisa especificado.${NC}"
-                exit 1
-            fi
-            search_recycled "$@"
-            ;;
-
-        empty)
-            empty_recyclebin "$@"
-            ;;
-
-        stats|statistics)
-            show_statistics
-            ;;
-
-        cleanup|auto-cleanup)
-            auto_cleanup
-            ;;
-
-        quota|check-quota)
-            check_quota
-            ;;
-
-        preview)
-            if [ $# -lt 1 ]
-            then
-                echo -e "${RED}ERRO: Nenhum ID especificado para pré-visualizar.${NC}"
-                exit 1
-            fi
-            preview_file "$1"
-            ;;
-
-        purge|purgecorrupted|purge_corrupted)
-            purge_corrupted
-            ;;
-
-        version|--version|-v)
-            show_version
-            ;;
-
-        *)
-            echo -e "${RED}ERRO: Comando desconhecido '${command}'.${NC}"
-            echo "Use './recycle_bin.sh help' para ver a lista de comandos disponíveis."
+        cleanup|auto-cleanup) auto_cleanup ;;
+        quota|check-quota) check_quota ;;
+        preview) preview_file "$1" ;;
+        purgecorrupted) purge_corrupted ;;
+        *) 
+            echo -e "${RED}Comando desconhecido: '$command'${NC}"
+            echo "Use './recycle_bin.sh help' para ver comandos disponíveis."
             exit 1
             ;;
     esac
-
-    flock -u 200
-    rm -f "$RECYCLE_BIN_DIR/lockfile"
 }
+
 
 
 main "$@"
