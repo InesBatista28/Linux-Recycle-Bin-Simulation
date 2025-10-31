@@ -293,7 +293,8 @@ delete_file() {
     if [ "$type" = "symlink" ]
     then
       cp -P "$item" "$FILES_DIR/$id"
-      if [ $? -ne 0 ]; then
+      if [ $? -ne 0 ]
+      then
         echo -e "${RED}ERROR: Failed to copy symlink '$item' to Recycle Bin.${NC}"
         log_msg "ERROR" "Failed to copy symlink $item to Recycle Bin"
         continue
@@ -679,15 +680,18 @@ empty_recyclebin() {
     done
 
     # If metadata missing or contains only header, nothing to do
-    if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 1 ]; then
+    if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 1 ]
+    then
         echo "Recycle bin is already empty."
         log_msg "EMPTY_SKIP: Recycle bin already empty"
         return 0
     fi
 
     # MODO 1: Empty entire bin
-    if [ -z "$target" ]; then
-        if [ "$force" = false ]; then
+    if [ -z "$target" ]
+    then
+        if [ "$force" = false ]
+        then
             read -rp "This will permanently delete ALL items. Continue? (y/n): " confirm
             [[ "$confirm" =~ ^[Yy]$ ]] || { echo "Operation cancelled."; return 0; }
         fi
@@ -695,7 +699,9 @@ empty_recyclebin() {
         # Count metadata rows excluding header
         local line_count
         line_count=$(($(wc -l < "$METADATA_FILE") - 1))
-        if (( line_count < 0 )); then line_count=0; fi
+        if (( line_count < 0 ))
+        then
+            line_count=0; fi
 
 
 
@@ -841,22 +847,25 @@ EOF
 #################################################
 show_statistics() {
     # If metadata absent or only header, report empty
-    if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 1 ]; then
+    if [ ! -s "$METADATA_FILE" ] || [ "$(wc -l < "$METADATA_FILE")" -le 1 ]
+    then
         echo "Recycle bin is empty."
         log_msg "STATS" "No data to display"
         return 0
     fi
 
     echo "Recycle Bin Statistics"
-    echo "======================"
-    
+
+
+
     # Simple count
     local total_items=$(($(wc -l < "$METADATA_FILE") - 1))
     echo "Total items: $total_items"
     
     # Simple size calculation
     local total_size=0
-    if [ $total_items -gt 0 ]; then
+    if [ $total_items -gt 0 ]
+    then
         total_size=$(tail -n +2 "$METADATA_FILE" | awk -F',' '{sum+=$5} END {print sum}')
         echo "Total size: $(transform_size "$total_size")"
     fi
@@ -1141,13 +1150,15 @@ purge_corrupted() {
     echo -e "${YELLOW}Checking for corrupted entries...${NC}"
 
     # Check if metadata file exists and has content beyond header
-    if [ ! -f "$METADATA_FILE" ] || [ ! -s "$METADATA_FILE" ]; then
+    if [ ! -f "$METADATA_FILE" ] || [ ! -s "$METADATA_FILE" ]
+    then
         echo "No metadata found - nothing to purge."
         return 0
     fi
 
     local line_count=$(wc -l < "$METADATA_FILE" 2>/dev/null)
-    if [ "$line_count" -le 1 ]; then
+    if [ "$line_count" -le 1 ]
+    then
         echo "Metadata file has only header - nothing to purge."
         return 0
     fi
@@ -1168,7 +1179,8 @@ purge_corrupted() {
         local id=$(echo "$line" | cut -d',' -f1)
         
         # Check if the file exists in the recycle bin
-        if [ -e "$FILES_DIR/$id" ]; then
+        if [ -e "$FILES_DIR/$id" ]
+        then
             # File exists, keep the entry
             echo "$line" >> "$tmpfile"
         else
@@ -1180,8 +1192,10 @@ purge_corrupted() {
     done < <(tail -n +2 "$METADATA_FILE")
 
     # Only replace the metadata file if we found corrupted entries
-    if [ $missing -gt 0 ]; then
-        if mv "$tmpfile" "$METADATA_FILE" 2>/dev/null; then
+    if [ $missing -gt 0 ]
+    then
+        if mv "$tmpfile" "$METADATA_FILE" 2>/dev/null
+        then
             echo "Purged $missing corrupted entries."
             log_msg "INFO" "Purged $missing corrupted entries"
         else
@@ -1208,15 +1222,12 @@ purge_corrupted() {
 #################################################
 main() {
 
-    # ===============================
-    # 1️⃣ Verificar e criar estrutura da reciclagem
-    # ===============================
 
-    if [ ! -d "$RECYCLE_BIN_DIR" ]; then
+    if [ ! -d "$RECYCLE_BIN_DIR" ]
+    then
         echo "A criar estrutura inicial da reciclagem em $RECYCLE_BIN_DIR ..."
         mkdir -p "$FILES_DIR"
 
-        # Criar ficheiros essenciais
         echo "ID,ORIGINAL_NAME,ORIGINAL_PATH,DELETION_DATE,FILE_SIZE,FILE_TYPE,PERMISSIONS,OWNER" > "$METADATA_FILE"
         echo "MAX_SIZE_MB=1024" > "$CONFIG_FILE"
         echo "RETENTION_DAYS=30" >> "$CONFIG_FILE"
@@ -1225,7 +1236,6 @@ main() {
         echo "Estrutura da reciclagem criada com sucesso."
     fi
 
-    # Garantir permissões seguras
     chmod 700 "$RECYCLE_BIN_DIR" "$FILES_DIR" 2>/dev/null
 
 
@@ -1238,14 +1248,15 @@ main() {
 
 
 
-    if [ $# -lt 1 ]; then
+    if [ $# -lt 1 ]
+    then
         echo -e "${RED}ERRO: Nenhum comando especificado.${NC}"
         echo "Use './recycle_bin.sh help' para ver comandos disponíveis."
         exit 1
     fi
 
     local command="$1"
-    shift  # remover o comando da lista de argumentos
+    shift 
 
 
 
@@ -1280,7 +1291,8 @@ main() {
             ;;
 
         search)
-            if [ $# -lt 1 ]; then
+            if [ $# -lt 1 ]
+            then
                 echo -e "${RED}ERRO: Nenhum termo de pesquisa especificado.${NC}"
                 exit 1
             fi
@@ -1304,7 +1316,8 @@ main() {
             ;;
 
         preview)
-            if [ $# -lt 1 ]; then
+            if [ $# -lt 1 ]
+            then
                 echo -e "${RED}ERRO: Nenhum ID especificado para pré-visualizar.${NC}"
                 exit 1
             fi
@@ -1330,5 +1343,5 @@ main() {
     rm -f "$RECYCLE_BIN_DIR/lockfile"
 }
 
-# Executar main se o script for chamado diretamente
+
 main "$@"

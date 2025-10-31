@@ -1,5 +1,7 @@
 # Linux Recycle Bin System — Testing
-This document describes test cases for the Linux Recycle Bin Simulator.
+This document contains the complete set of functional, error-handling, and performance test cases 
+executed for the Linux Recycle Bin Simulation script.  
+Each test case includes objectives, steps, expected vs. actual results, and execution status.
 
 **Date:** 2025-10-30
 
@@ -7,49 +9,48 @@ This document describes test cases for the Linux Recycle Bin Simulator.
 Inês Batista, 124877  
 Maria Quinteiro, 124996
 
-## Test Case Index
+## **Test Case Index**
 - [Test Case 1: Help Command](#test-case-1-help-command)  
 - [Test Case 2: Initialization of Recycle Bin](#test-case-2-initialization-of-recycle-bin)  
 - [Test Case 3: Delete Single File](#test-case-3-delete-single-file)  
-- [Test Case 4: Delete Multiple Files/Directories](#test-case-4-delete-multiple-filesdirectories)  
-- [Test Case 5: Delete Empty Directory](#test-case-5-delete-empty-directory)  
+- [Test Case 4: Delete Multiple Files or Directories](#test-case-4-delete-multiple-files-or-directories)  
+- [Test Case 5: Delete Em  pty Directory](#test-case-5-delete-empty-directory)  
 - [Test Case 6: Delete Directory with Contents (Recursive)](#test-case-6-delete-directory-with-contents-recursive)  
 - [Test Case 7: List Empty Recycle Bin](#test-case-7-list-empty-recycle-bin)  
 - [Test Case 8: List Recycle Bin with Items](#test-case-8-list-recycle-bin-with-items)  
 - [Test Case 9: Restore Single File](#test-case-9-restore-single-file)  
-- [Test Case 10: Restore to Non-existent Path](#test-case-10-restore-to-non-existent-original-path)  
+- [Test Case 10: Restore to Non-existent Original Path](#test-case-10-restore-to-non-existent-original-path)  
 - [Test Case 11: Empty Entire Recycle Bin](#test-case-11-empty-entire-recycle-bin)  
 - [Test Case 12: Empty Recycle Bin (Single Item)](#test-case-12-empty-recycle-bin-single-item)  
-- [Test Case 13: Search Existing File](#test-case-13-search-for-existing-file)  
-- [Test Case 14: Search Non-existent File](#test-case-14-search-for-non-existent-file)  
+- [Test Case 13: Search for Existing File](#test-case-13-search-for-existing-file)  
+- [Test Case 14: Search for Non-existent File](#test-case-14-search-for-non-existent-file)  
 - [Test Case 15: Delete Non-existent File](#test-case-15-delete-non-existent-file)  
 - [Test Case 16: Delete File Without Permissions](#test-case-16-delete-file-without-permissions)  
-- [Test Case 17: Restore When Conflict Exists](#test-case-17-restore-when-original-location-has-same-filename)  
-- [Test Case 18: Restore Invalid ID](#test-case-18-restore-with-id-that-doesnt-exist)  
-- [Test Case 19: Filenames with Spaces](#test-case-19-handle-filenames-with-spaces)  
-- [Test Case 20: Special Characters](#test-case-20-handle-filenames-with-special-characters)  
-- [Test Case 21: Very Long Filenames](#test-case-21-handle-very-long-filenames-255-chars-nao-ta-acabado)  
-- [Test Case 22: Very Large Files](#test-case-22-handle-very-large-files-100mb)  
-- [Test Case 23: Symbolic Links](#test-case-23-handle-symbolic-links)  
-- [Test Case 24: Hidden Files](#test-case-24-handle-hidden-files)  
-- [Test Case 25: Files from Different Directories](#test-case-25-delete-files-from-different-directories)  
-- [Test Case 26: Restore to Read-only Directory](#test-case-26-restore-files-to-read-only-directories-nao-ta-acabado)  
-- [Test Case 27: Invalid Command Line Args](#test-case-27-invalid-command-line-arguments)  
+- [Test Case 17: Restore When Conflict Exists](#test-case-17-restore-when-conflict-exists)  
+- [Test Case 18: Restore with Invalid ID](#test-case-18-restore-with-invalid-id)  
+- [Test Case 19: Handle Filenames with Spaces](#test-case-19-handle-filenames-with-spaces)  
+- [Test Case 20: Handle Filenames with Special Characters](#test-case-20-handle-filenames-with-special-characters)  
+- [Test Case 21: Handle Very Long Filenames (>255 chars)](#test-case-21-handle-very-long-filenames-255-chars)  
+- [Test Case 22: Handle Very Large Files (>100MB)](#test-case-22-handle-very-large-files-100mb)  
+- [Test Case 23: Handle Symbolic Links](#test-case-23-handle-symbolic-links)  
+- [Test Case 24: Handle Hidden Files](#test-case-24-handle-hidden-files)  
+- [Test Case 25: Delete Files from Different Directories](#test-case-25-delete-files-from-different-directories)  
+- [Test Case 26: Restore Files to Read-only Directories](#test-case-26-restore-files-to-read-only-directories)  
+- [Test Case 27: Invalid Command Line Arguments](#test-case-27-invalid-command-line-arguments)  
 - [Test Case 28: Missing Required Parameters](#test-case-28-missing-required-parameters)  
-- [Test Case 29: Corrupted Metadata](#test-case-29-corrupted-metadata-file)  
+- [Test Case 29: Corrupted Metadata File](#test-case-29-corrupted-metadata-file)  
 - [Test Case 30: Permission Denied on Recycle Bin Directory](#test-case-30-permission-denied-on-recycle-bin-directory)  
 - [Test Case 31: Attempt to Delete Recycle Bin Itself](#test-case-31-attempt-to-delete-recycle-bin-itself)  
-- [Test Case 32: Simultaneous Deletion Operations (Concurrency)](#test-case-32-simultaneous-deletion-operations-concurrency)  
-- [Test Case 33: Performance — Delete 1000 Files](#test-case-33-performance--delete-1000-files)  
+- [Test Case 32: Concurrent Deletion Operations (Concurrency)](#test-case-32-concurrent-deletion-operations-concurrency)  
+- [Test Case 33: Performance — Delete 100+ Files](#test-case-33-performance--delete-100-files)  
 - [Test Case 34: Performance — List Large Metadata](#test-case-34-performance--list-large-metadata)  
-- [Test Case 35: Script Self-Protection](#test-case-35-script-self-protection-cannot-delete-or-restore-script-itself)  
-- [Test Case 36: Configuration File Loading](#test-case-36-configuration-file-loading)  
-- [Test Case 37: Configuration File Missing](#test-case-37-configuration-file-missing)  
-- [Test Case 38: Logging Verification](#test-case-38-logging-verification)  
-- [Test Case 39: Localization — Non-English Filenames](#test-case-39-localization--non-english-filenames)  
-- [Test Case 40: Version Command](#test-case-40-version-command)  
-- [Test Case 41: Configuration Reload Without Restart](#test-case-41-configuration-reload-without-restart)  
-
+- [Test Case 35: Search in Large Metadata File](#test-case-35-search-in-large-metadata-file)  
+- [Test Case 36: Restore from Recycle Bin with Many Items](#test-case-36-restore-from-recycle-bin-with-many-items)  
+- [Test Case 37: Configuration File Loading](#test-case-37-configuration-file-loading)  
+- [Test Case 38: Configuration File Missing](#test-case-38-configuration-file-missing)  
+- [Test Case 39: Logging Verification](#test-case-39-logging-verification)  
+- [Test Case 40: Localization — Non-English Filenames](#test-case-40-localization--non-english-filenames)  
+- [Test Case 41: Version Command](#test-case-41-version-command)
 
 ---
 
