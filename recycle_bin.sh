@@ -26,6 +26,23 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 
+#################################################
+# Function: show_version
+# Purpose: Display script name, version, last update date, and author information.
+# Parameters: None
+# Returns: 0
+#################################################
+show_version() {
+    echo "=========================================="
+    echo " Linux Recycle Bin Simulator"
+    echo "------------------------------------------"
+    echo " Version:     1.6"
+    echo " Last Update: 2025-10-30"
+    echo " Authors:     Inês Batista, Maria Quinteiro"
+    echo "=========================================="
+}
+
+
 
 RECYCLE_BIN_DIR="$HOME/.recycle_bin"     # Root directory used to store recycle bin data
 FILES_DIR="$RECYCLE_BIN_DIR/files"       # Directory that holds the actual deleted file payloads
@@ -1277,6 +1294,11 @@ main() {
         auto_cleanup|autoclean)
             auto_cleanup
             ;;
+
+        version)
+            show_version
+            ;;
+
 
         *)
             echo -e "${RED}ERROR: Unknown command: $command${NC}"

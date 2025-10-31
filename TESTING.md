@@ -1,5 +1,6 @@
 # Linux Recycle Bin System — Testing
 This document describes test cases for the Linux Recycle Bin Simulator.
+
 **Date:** 2025-10-30
 
 ## Authors
@@ -184,8 +185,7 @@ Maria Quinteiro, 124996
 
 **Status:** ☑ Pass ☐ Fail   
 
-**Screenshots:** 
-![Delete Empty Directory](screenshots/delete_empty_directory.png)
+**Screenshots:**  ![Delete Empty Directory](screenshots/delete_empty_directory.png)
 
 
 ---
@@ -588,7 +588,7 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail  
 
 **Screenshots:** 
-![Handle Long Filenames](screenshots/VeryLong.png) 
+
 
 ---
 
@@ -994,12 +994,13 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail  
 
 **Screenshots:** 
-![Restore in big metadata](screenshots/restore.png)  
-![Metadata](screenshots/85.png)
+![Restore in big metadata](screenshots/parte1.png)  
+![Metadata](screenshots/parte2.png)
+![Metadata](screenshots/parte3.png)
 
 ---
 
-### Test Case 38: Configuration File Loading
+### Test Case 39: Configuration File Loading
 
 **Objective:** Verify that the script correctly reads configuration values from the ~/.recycle_bin/config file.
 
@@ -1021,11 +1022,11 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail  
 
 **Screenshots:** 
-
+![Configuration](screenshots/confirmation.png)
 
 ---
 
-### Test Case 39: Configuration File Missing
+### Test Case 40: Configuration File Missing
 
 **Objective:** Ensure the script recreates a default configuration file when it is missing.
 
@@ -1037,17 +1038,18 @@ Maria Quinteiro, 124996
 - Script should automatically detect the missing file and recreate it with default parameters.
 
 **Actual Result:**
-- Script detected missing config file and printed: “Configuration file not found. Recreating with defaults.”
+- Script detected missing config file and printed something like: “Configuration file not found. Recreating with defaults.”
 - A new file was generated with standard options (confirm_delete=true, log_level=info).
 - Operation continued normally without interruption.
 
 **Status:** ☑ Pass ☐ Fail   
 
 **Screenshots:** 
+![Configuration file missing](screenshots/conf_file_missing.png)
 
 ---
 
-### Test Case 40: Logging Verification
+### Test Case 41: Logging Verification
 
 **Objective:** Confirm that all operations generate correct and timestamped entries in recyclebin.log.
 
@@ -1070,10 +1072,11 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail  
 
 **Screenshots:** 
+![Logging Verification](screenshots/logging_verification.png)
 
 ---
 
-### Test Case 41: Localization — Non-English Filenames
+### Test Case 42: Localization — Non-English Filenames
 
 **Objective:** Verify that filenames containing Unicode characters (e.g., accented letters, non-Latin scripts) are handled correctly.
 
@@ -1093,10 +1096,11 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail  
 
 **Screenshots:** 
+![Localization — Non-English Filenames](screenshots/nonenglish_files.png)
 
 ---
 
-### Test Case 42: Version Command
+### Test Case 43: Version Command
 
 **Objective:** Ensure that the version command displays script version and author information accurately.
 
@@ -1119,33 +1123,10 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail  
 
 **Screenshots:** 
+![Version Command](screenshots/version.png)
 
----
 
-### Test Case 43: Configuration Reload Without Restart
 
-**Objective:** Test dynamic configuration reloading while the script is running (if applicable).
-
-**Steps:**
-- Keep the script running in interactive mode (if supported).
-- Modify `~/.recycle_bin/config` (e.g., toggle color output setting).
-- Execute another command within the same session.
-
-**Expected Result:**
-- Configuration reloads automatically or with minimal delay.
-- New settings applied to subsequent commands.
-
-**Actual Result:**
-- Script detected config change via timestamp comparison.
-- Reloaded configuration without restarting the session.
-- Updated color scheme applied immediately to new output.
-- Log entry: “Configuration reloaded dynamically (no restart required).”
-
-**Status:** ☑ Pass ☐ Fail   
-
-**Screenshots:** 
-
----
 
 
 
