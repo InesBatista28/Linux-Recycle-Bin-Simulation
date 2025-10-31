@@ -4,7 +4,7 @@ It replicates the behavior of a recycle bin, allowing users to delete, restore, 
 
 The system uses a hidden directory `~/.recycle_bin` containing structured subfolders and metadata to track deleted items safely.
 
-**Date:** 2025-10-30
+**Date:** 2025-10-28
 
 ## Authors
 Inês Batista, 124877<br>
@@ -457,34 +457,54 @@ It ensures data integrity, traceability, and consistency between the filesystem 
 #### Pseudocode
 ```bash
 delete_file() {
-    for file in "$@"; do
-        # Validate input
-        if [[ ! -e "$file" ]]; then
-            echo "Warning: File not found -> $file"
-            continue
-        fi
+    local file="$1"
 
-        # Ensure recycle bin structure exists
-        mkdir -p "$HOME/.recycle_bin/files"
+    # Check if the file exists
+    if [[ ! -e "$file" ]]; then
+        echo "Error: File '$file' does not exist."
+        return 1
+    fi
 
-        # Generate a unique ID (timestamp + random)
-        id="$(date +%s)_$RANDOM"
+    # Prevent deleting files already inside the recycle bin
+    if [[ "$file" == "$RECYCLE_DIR"* ]]; then
+        echo "Error: Cannot delete files inside the recycle bin."
+        return 1
+    fi
 
-        # Target path inside recycle bin
-        target="$HOME/.recycle_bin/files/$id"
+    # Generate a unique ID based on timestamp
+    local id
+    id=$(date +%s)
 
-        # Move file to recycle bin
-        mv "$file" "$target" 2>/dev/null
+    # Extract file base name and set recycle path
+    local base_name
+    base_name=$(basename "$file")
+    local target="$RECYCLE_FILES/${id}_${base_name}"
 
-        if [[ $? -eq 0 ]]; then
-            # Append entry to metadata
-            echo "$id|$file|$(date +'%Y-%m-%d %H:%M:%S')|$(stat -c%s "$target")" >> "$HOME/.recycle_bin/metadata.db"
-            # Log action
-            echo "$(date +'%F %T') [DELETE] $file → $id" >> "$HOME/.recycle_bin/recyclebin.log"
-        else
-            echo "Error: Failed to move $file"
-        fi
-    done
+    # Collect file metadata
+    local file_size file_type permissions owner deletion_date original_path
+    file_size=$(stat -c '%s' "$file")
+    file_type=$(file --brief --mime-type "$file")
+    permissions=$(stat -c '%a' "$file")
+    owner=$(stat -c '%U:%G' "$file")
+    deletion_date=$(date '+%Y-%m-%d %H:%M:%S')
+    original_path=$(dirname "$(realpath "$file")")
+
+    # Check if there is enough space based on user quota
+    if ! check_quota "$file_size"; then
+        echo "Error: Recycle bin quota exceeded."
+        return 1
+    fi
+
+    # Move file to recycle bin directory
+    mv "$file" "$target"
+
+    # Register metadata entry (CSV format)
+    echo "$id,$base_name,$original_path,$deletion_date,$file_size,$file_type,$permissions,$owner" >> "$METADATA_FILE"
+
+    # Log operation
+    log_msg "INFO" "File '$file' moved to recycle bin (ID: $id, Size: $file_size bytes)"
+
+    return 0
 }
 ```
 
@@ -504,36 +524,50 @@ The Restore Algorithm retrieves deleted files from the recycle bin and places th
 #### Pseudocode
 ```bash
 restore_file() {
-    local id="$1"
-    local metadata_file="$HOME/.recycle_bin/metadata.db"
+    local identifier="$1"
 
-    # Look up entry in metadata
+    # Locate entry in metadata (can match by ID or filename)
     local entry
-    entry=$(grep "^$id|" "$metadata_file")
+    entry=$(grep -m1 -E "^$identifier,|,$identifier," "$METADATA_FILE") || {
+        echo "Error: Item '$identifier' not found in metadata."
+        return 1
+    }
 
-    if [[ -z "$entry" ]]; then
-        echo "Error: No entry found for ID $id"
+    # Parse metadata line (CSV fields)
+    IFS=',' read -r id name path date size type perms owner <<< "$entry"
+
+    local src="$RECYCLE_FILES/${id}_${name}"
+    local dest="$path/$name"
+
+    # Verify the recycled file still exists
+    if [[ ! -e "$src" ]]; then
+        echo "Error: Recycled file missing (metadata corrupted)."
+        grep -v "^$id," "$METADATA_FILE" > "$METADATA_FILE.tmp" && mv "$METADATA_FILE.tmp" "$METADATA_FILE"
         return 1
     fi
 
-    # Parse original path
-    local original_path
-    original_path=$(echo "$entry" | cut -d'|' -f2)
-    local file_path="$HOME/.recycle_bin/files/$id"
-
-    # Recreate directory if needed
-    mkdir -p "$(dirname "$original_path")"
-
-    # Move file back
-    if mv "$file_path" "$original_path"; then
-        # Remove metadata entry
-        grep -v "^$id|" "$metadata_file" > "$metadata_file.tmp" && mv "$metadata_file.tmp" "$metadata_file"
-        # Log action
-        echo "$(date +'%F %T') [RESTORE] $id → $original_path" >> "$HOME/.recycle_bin/recyclebin.log"
-        echo "Restored: $original_path"
-    else
-        echo "Error: Failed to restore $id"
+    # Handle filename conflict on restore
+    if [[ -e "$dest" ]]; then
+        echo "Warning: A file already exists at '$dest'."
+        dest="${path}/${name}_restored_${id}"
+        echo "Restoring as '$dest'."
     fi
+
+    # Move the file back to its original location
+    mv "$src" "$dest"
+
+    # Restore permissions and ownership if possible
+    chmod "$perms" "$dest" 2>/dev/null || echo "Warning: Unable to restore permissions."
+    chown "$owner" "$dest" 2>/dev/null || echo "Warning: Unable to restore ownership."
+
+    # Remove entry from metadata after successful restore
+    grep -v "^$id," "$METADATA_FILE" > "$METADATA_FILE.tmp" && mv "$METADATA_FILE.tmp" "$METADATA_FILE"
+
+    # Log operation
+    log_msg "INFO" "File '$dest' restored (ID: $id, Permissions: $perms, Owner: $owner)"
+
+    echo "File successfully restored: $dest"
+    return 0
 }
 ```
 

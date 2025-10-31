@@ -1,12 +1,13 @@
 # Linux Recycle Bin System
-**Date:** 2025-10-30
+**Date:** 2025-10-28
 
 ## Authors
 Inês Batista, 124877<br>
 Maria Quinteiro, 124996
 
 ## Description
-A Linux Recycle Bin Simulator implemented in Bash. This script provides a safe mechanism to delete, restore, search, and permanently remove files/directories, mimicking a graphical Recycle Bin behavior in the terminal. It also logs operations and maintains metadata for all deleted items.
+A Linux Recycle Bin Simulator implemented in Bash. It provides a safe deletion and restoration mechanism for files and directories, mimicking the behavior of a graphical Recycle Bin directly in the terminal.
+The system maintains a metadata database, log file, configurable policies, and quota management, offering robust file lifecycle control.
 
 ## Installation
 1. Clone the repository:
@@ -41,6 +42,7 @@ Available Commands:
 * ```cleanup``` -	Trigger manual auto-cleanup of expired files
 * ```preview <ID>``` -	Preview a deleted file’s content or type before restoring
 * `purgecorrupted` or `purge` - Scan for and remove corrupted or orphaned metadata entries
+* `quota` - Display current storage quota and utilization
 
 ## Features
 * Safe deletion — files are moved, not permanently removed
@@ -51,31 +53,28 @@ Available Commands:
 * Empty the recycle bin fully or selectively
 * Persistent logging of all actions for auditing and debugging
 * Configurable limits for bin size and retention period
+* Permission Preservation — Restored files keep original mode and ownership
 
 **Optional Features Implemented:**
 * **Statistics Dashboard:**
-  - Display total number of deleted items
-  - Show total storage used and quota utilization
-  - Separate counts for files and directories
-  - Indicate oldest and most recent deletions
-  - Report average file size and usage trends
+  - Displays total deleted items, storage usage, and quota utilization
+  - Shows oldest and newest deletion timestamps
+  - Reports average file size and total occupied space
 
 * **Auto-Cleanup:**
-  - Automatically delete files older than RETENTION_DAYS
-  - Reads policy from configuration file
-  - Logs cleanup actions and space recovered
-  - Can run manually (cleanup) or automatically during delete
+  - Automatically removes files older than RETENTION_DAYS
+  - Logs cleanup actions and space reclaimed
+  - Triggered manually (cleanup) or automatically during deletion
 
 * **Quota Management:**
   - Enforces maximum bin size (MAX_SIZE_MB)
-  - Displays warnings when quota is reached
-  - Optionally triggers auto-cleanup to free space
+  - Warns or triggers cleanup when space is exceeded
+  - Prevents deletion if the limit is reached
 
 * **File Preview:**
-  - View first 10 lines of text files directly from the bin
-  - Display file type for binary or non-readable files
-  - Accepts file ID as input
-  - Prevents accidental restoration of unwanted items
+  - Displays the first 10 lines of text files directly from the bin
+  - Identifies binary files safely without decoding
+  - Helps verify files before restoring them
 
 * **Metadata Integrity (purge_corrupted):**
   - Detects missing or invalid entries in the metadata database
@@ -101,7 +100,7 @@ For detailed usage scenarios, command demonstrations, and output samples, see: [
 
 ## Known Issues
 * Interactive prompts (e.g., during restore conflicts) require terminal input.
-* Recursive directory restores may have limited permission compatibility on restricted filesystems.
+* Some permission restore operations may fail on restricted filesystems.
 * Quota checks apply to the configured recycle bin only (~/.recycle_bin/), not system-wide.
 * Preview only supports plain text content for readability and safety.
 

@@ -1,71 +1,91 @@
 # Linux Recycle Bin System — Testing
 This document describes test cases for the Linux Recycle Bin Simulator.
+
 **Date:** 2025-10-30
 
 ## Authors
 Inês Batista, 124877  
 Maria Quinteiro, 124996
 
-## Test Case Index
-- [Test Case 1: Help Command](#test-case-1-help-command)  
-- [Test Case 2: Initialization of Recycle Bin](#test-case-2-initialization-of-recycle-bin)  
-- [Test Case 3: Delete Single File](#test-case-3-delete-single-file)  
-- [Test Case 4: Delete Multiple Files/Directories](#test-case-4-delete-multiple-filesdirectories)  
-- [Test Case 5: Delete Empty Directory](#test-case-5-delete-empty-directory)  
-- [Test Case 6: Delete Directory with Contents (Recursive)](#test-case-6-delete-directory-with-contents-recursive)  
-- [Test Case 7: List Empty Recycle Bin](#test-case-7-list-empty-recycle-bin)  
-- [Test Case 8: List Recycle Bin with Items](#test-case-8-list-recycle-bin-with-items)  
-- [Test Case 9: Restore Single File](#test-case-9-restore-single-file)  
-- [Test Case 10: Restore to Non-existent Path](#test-case-10-restore-to-non-existent-original-path)  
-- [Test Case 11: Empty Entire Recycle Bin](#test-case-11-empty-entire-recycle-bin)  
-- [Test Case 12: Empty Recycle Bin (Single Item)](#test-case-12-empty-recycle-bin-single-item)  
-- [Test Case 13: Search Existing File](#test-case-13-search-for-existing-file)  
-- [Test Case 14: Search Non-existent File](#test-case-14-search-for-non-existent-file)  
-- [Test Case 15: Delete Non-existent File](#test-case-15-delete-non-existent-file)  
-- [Test Case 16: Delete File Without Permissions](#test-case-16-delete-file-without-permissions)  
-- [Test Case 17: Restore When Conflict Exists](#test-case-17-restore-when-original-location-has-same-filename)  
-- [Test Case 18: Restore Invalid ID](#test-case-18-restore-with-id-that-doesnt-exist)  
-- [Test Case 19: Filenames with Spaces](#test-case-19-handle-filenames-with-spaces)  
-- [Test Case 20: Special Characters](#test-case-20-handle-filenames-with-special-characters)  
-- [Test Case 21: Very Long Filenames](#test-case-21-handle-very-long-filenames-255-chars-nao-ta-acabado)  
-- [Test Case 22: Very Large Files](#test-case-22-handle-very-large-files-100mb)  
-- [Test Case 23: Symbolic Links](#test-case-23-handle-symbolic-links)  
-- [Test Case 24: Hidden Files](#test-case-24-handle-hidden-files)  
-- [Test Case 25: Files from Different Directories](#test-case-25-delete-files-from-different-directories)  
-- [Test Case 26: Restore to Read-only Directory](#test-case-26-restore-files-to-read-only-directories-nao-ta-acabado)  
-- [Test Case 27: Invalid Command Line Args](#test-case-27-invalid-command-line-arguments)  
-- [Test Case 28: Missing Required Parameters](#test-case-28-missing-required-parameters)  
-- [Test Case 29: Corrupted Metadata](#test-case-29-corrupted-metadata-file)  
-- [Test Case 30: Insufficient Disk Space](#test-case-30-insufficient-disk-space-during-delete)  
-- [Test Case 31: Insufficient Disk Space During Restore](#test-case-31-insufficient-disk-space-during-restore)  
-- [Test Case 32: Permission Denied on Recycle Bin Directory](#test-case-32-permission-denied-on-recycle-bin-directory)  
-- [Test Case 33: Attempt to Delete Recycle Bin Itself](#test-case-33-attempt-to-delete-recycle-bin-itself)  
-- [Test Case 34: Simultaneous Deletion Operations (Concurrency)](#test-case-34-simultaneous-deletion-operations-concurrency)  
-- [Test Case 35: Performance — Delete 1000 Files](#test-case-35-performance--delete-1000-files)  
-- [Test Case 36: Performance — List Large Metadata](#test-case-36-performance--list-large-metadata)  
-- [Test Case 37: Script Self-Protection](#test-case-37-script-self-protection-cannot-delete-or-restore-script-itself)  
-- [Test Case 38: Configuration File Loading](#test-case-38-configuration-file-loading)  
-- [Test Case 39: Configuration File Missing](#test-case-39-configuration-file-missing)  
-- [Test Case 40: Logging Verification](#test-case-40-logging-verification)  
-- [Test Case 41: Localization — Non-English Filenames](#test-case-41-localization--non-english-filenames)  
-- [Test Case 42: Version Command](#test-case-42-version-command)  
-- [Test Case 43: Configuration Reload Without Restart](#test-case-43-configuration-reload-without-restart)  
 
+## Table of Contents
+### General Functionality
+1. [Test 1 – Help Command](#test-case-1-help-command)
+2. [Test 2 – Initialization of Recycle Bin](#test-case-2-initialization-of-recycle-bin)
+
+### Deletion Operations
+3. [Test 3 – Delete Single File](#test-case-3-delete-single-file)
+4. [Test 4 – Delete Multiple Files/Directories](#test-case-4-delete-multiple-filesdirectories)
+5. [Test 5 – Delete Empty Directory](#test-case-5-delete-empty-directory)
+6. [Test 6 – Delete Directory with Contents (Recursive)](#test-case-6-delete-directory-with-contents-recursive)
+7. [Test 15 – Delete Non-existent File](#test-case-15-delete-non-existent-file)
+8. [Test 16 – Delete File Without Permissions](#test-case-16-delete-file-without-permissions)
+9. [Test 19 – Handle Filenames with Spaces](#test-case-19-handle-filenames-with-spaces)
+10. [Test 20 – Handle Filenames with Special Characters](#test-case-20-handle-filenames-with-special-characters)
+11. [Test 21 – Handle Very Long Filenames](#test-case-21-handle-very-long-filenames)
+12. [Test 22 – Handle Very Large Files](#test-case-22-handle-very-large-files)
+13. [Test 23 – Handle Symbolic Links](#test-case-23-handle-symbolic-links)
+14. [Test 24 – Handle Hidden Files](#test-case-24-handle-hidden-files)
+15. [Test 25 – Delete Files from Different Directories](#test-case-25-delete-files-from-different-directories)
+16. [Test 32 – Prevent Self-deletion of Recycle Bin](#test-case-32-attempting-to-delete-recycle-bin-itself)
+
+### Restoration Operations
+17. [Test 9 – Restore Single File](#test-case-9-restore-single-file)
+18. [Test 10 – Restore to Non-existent Original Path](#test-case-10-restore-to-non-existent-original-path)
+19. [Test 17 – Restore When Original Location Has Same Filename](#test-case-17-restore-when-original-location-has-same-filename)
+20. [Test 18 – Restore With Non-existent ID](#test-case-18-restore-with-id-that-doesnt-exist)
+21. [Test 26 – Restore Files to Read-only Directories](#test-case-26-restore-files-to-read-only-directories)
+22. [Test 37 – Restore from Bin with Many Items](#test-case-37-restore-from-bin-with-many-items)
+
+### Listing & Searching
+23. [Test 7 – List Empty Recycle Bin](#test-case-7-list-empty-recycle-bin)
+24. [Test 8 – List Recycle Bin with Items](#test-case-8-list-recycle-bin-with-items)
+25. [Test 13 – Search for Existing File](#test-case-13-search-for-existing-file)
+26. [Test 14 – Search for Non-existent File](#test-case-14-search-for-non-existent-file)
+27. [Test 35 – List Recycle Bin with 100+ Items](#test-case-35-list-recycle-bin-with-100-items)
+28. [Test 36 – Search in Large Metadata File](#test-case-36-search-in-large-metadata-file)
+
+### Emptying & Cleanup
+29. [Test 11 – Empty Entire Recycle Bin](#test-case-11-empty-entire-recycle-bin)
+30. [Test 12 – Empty Single Item by ID](#test-case-12-empty-recycle-bin-single-item)
+31. [Test 40 – Auto Cleanup Trigger (New)](#test-case-40-auto-cleanup-trigger-new)
+32. [Test 41 – Cleanup with Retention Policy (New)](#test-case-41-cleanup-with-retention-policy-new)
+
+### Error & Edge Cases
+33. [Test 27 – Invalid Command Line Arguments](#test-case-27-invalid-command-line-arguments)
+34. [Test 28 – Missing Required Parameters](#test-case-28-missing-required-parameters)
+35. [Test 29 – Corrupted Metadata File](#test-case-29-corrupted-metadata-file)
+36. [Test 30 – Insufficient Disk Space](#test-case-30-insufficient-disk-space)
+37. [Test 31 – Permission Denied Errors](#test-case-31-permission-denied-errors)
+38. [Test 33 – Concurrent Operations](#test-case-33-concurrent-operations)
+
+### Performance & Stress Tests
+39. [Test 34 – Delete 100+ Files](#test-case-34-delete-100-files)
+
+### Advanced Features (New)
+40. [Test 38 – View Recycle Bin Statistics](#test-case-38-view-recycle-bin-statistics-new)
+41. [Test 39 – Compare Stats Before and After Deletion](#test-case-39-compare-stats-before-and-after-deletion-new)
+42. [Test 42 – Preview File Contents Before Restore](#test-case-42-preview-file-contents-before-restore-new)
+43. [Test 43 – Preview Binary or Large File](#test-case-43-preview-binary-or-large-file-new)
+44. [Test 44 – Purge Corrupted Metadata Entries](#test-case-44-purge-corrupted-metadata-entries-new)
+45. [Test 45 – Purge Missing File Entries](#test-case-45-purge-missing-file-entries-new)
+46. [Test 46 – Check Storage Quota Warning](#test-case-46-check-storage-quota-warning-new)
+47. [Test 47 – Enforce Hard Quota Limit](#test-case-47-enforce-hard-quota-limit-new)
 
 ---
 
+## TEST CASES
+
+
 ### Test Case 1: Help Command
-**Objective:** Verify that the help command displays usage information correctly.
+**Objective:** Verify that the help command displays usage information correctly  
 
 **Steps:**
 1. Run: `./recycle_bin.sh help`  
-2. Review the terminal output
-3. Ensure that all commands, options, and examples are listed and correctly formatted
+2. Verify that the displayed message includes: Usage syntax, list of commands and options and configuration file path
 
 **Expected Result:**
-- Help message printed clearly with all supported commands (delete, restore, list, search, empty, help)
-- Configuration file path and usage examples shown
-- Exit status 0
+- Help message displayed, listing all supported commands with clear syntax examples.
 
 **Actual Result:**  
 - Help message displayed exactly as defined in `display_help()` function, including usage, commands, examples, and configuration file location  
@@ -78,17 +98,16 @@ Maria Quinteiro, 124996
 ---
 
 ### Test Case 2: Initialization of Recycle Bin
-**Objective:** Ensure the recycle bin structure is automatically created on first run
+**Objective:** Ensure the recycle bin structure is created on first run  
 
 **Steps:**
 1. Remove any existing recycle bin: `rm -rf ~/.recycle_bin`  
-2. Run ./recycle_bin.sh help or any other command
+2. Run any command, e.g.: `./recycle_bin.sh help`  
 3. Verify that `~/.recycle_bin/` directory is created  
 4. Check for `files/`, `metadata.db`, `config`, and `recyclebin.log`  
 
 **Expected Result:**
-- Directory ~/.recycle_bin/ and all required components are created automatically
-- Metadata and log files initialized properly
+- Directories and files are created  
 
 **Actual Result:**  
 - `~/.recycle_bin/` created  
@@ -182,7 +201,7 @@ Maria Quinteiro, 124996
 - `'emptydir' moved to Recycle Bin` printed in green  
 - Metadata entry correctly created  
 
-**Status:** ☑ Pass ☐ Fail   
+**Status:** ☑ Pass ☐ Fail  
 
 **Screenshots:** 
 ![Delete Empty Directory](screenshots/delete_empty_directory.png)
@@ -200,7 +219,7 @@ Maria Quinteiro, 124996
 3. Verify that directory and contents are removed  
 
 **Expected Result:**  
-- All contents moved recursively. Check that it is no longer in the original path  
+- All contents moved recursively  3. Check that it is no longer in the original path  
 - One metadata entry for `dirA`  
 - Log entry created  
 
@@ -208,7 +227,7 @@ Maria Quinteiro, 124996
 - `'dirA' moved to Recycle Bin`  
 - Directory structure preserved inside recycle bin  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass ☐ Fail   
 
 **Screenshots:** 
 ![Delete Directory with Contents](screenshots/Delete_Directory_with_Contents.png)
@@ -227,10 +246,10 @@ Maria Quinteiro, 124996
 - Message “Recycle Bin is empty”  
 
 **Actual Result:**  
-- Output displays a message such as “Recycle Bin is empty”
+- Yellow message displayed  
 - No errors  
 
-**Status:** ☑ Pass ☐ Fail   
+**Status:** ☑ Pass ☐ Fail  
 
 **Screenshots:** 
 ![Delete Multiple Files/Directories Screenshot](screenshots/delete_multiple_files.png)
@@ -299,20 +318,17 @@ Maria Quinteiro, 124996
 3. Run: `./recycle_bin.sh restore <ID>`  
 
 **Expected Result:**  
-- The missing directory structure is recreated automatically.
-- The file is restored to its original path.
+- Folder recreated automatically  
+- File restored successfully  
 
 **Actual Result:**  
-- The script detected that the destination folder was missing.
-- A message indicated the creation of the required directory.
-- The folder was recreated successfully, and the file restored inside it.
-- Metadata entry was removed, and log updated accordingly.
+- “Destination directory missing. Creating …” message displayed  
+- File restored  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass ☐ Fail
 
 **Screenshots:**  
-![Restore to Non-existent Original Path](screenshots/Restore_Non-existent1.png) 
-![Restore to Non-existent Original Path](screenshots/Restore_Non-existent2.png) 
+![Restore to Non-existent Original Path](screenshots/Restore_Non-existent1.png) ![Restore to Non-existent Original Path](screenshots/Restore_Non-existent2.png) 
 
 ---
 
@@ -337,10 +353,9 @@ Maria Quinteiro, 124996
 - Green message "All X items permanently deleted"
 - Log updated
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass ☐ Fail
 
-**Screenshots:** 
-![Empty](screenshots/Empty.png) 
+**Screenshots:**  ![Empty](screenshots/Empty.png) 
 
 ---
 
@@ -367,8 +382,7 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail
 
 **Screenshots:** 
-![Empty Single Item](screenshots/13_1.png)
-![Empty Single Item](screenshots/13_2.png)
+![Empty Single Item](screenshots/13_1.png) ![Empty Single Item](screenshots/13_2.png)
 
 ---
 
@@ -410,10 +424,10 @@ Maria Quinteiro, 124996
 - “No matching results” message displayed  
 
 **Actual Result:**  
-- Output displayed a yellow message: “No matching results found.”
-- Command completed without errors or performance delay.
+- Yellow message printed  
+- No errors  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass ☐ Fail
 
 **Screenshots:** 
 ![Search Non-Existing File](screenshots/Search_NonExistent.png)
@@ -508,12 +522,10 @@ Maria Quinteiro, 124996
 - Error message “No matching entry found”  
 
 **Actual Result:**  
-- Script printed a red “No entry found with ID 999999” message.
-- No file operations performed. 
-- Log recorded an invalid ID access attempt.
-- Exit code returned 1.
+- Printed in red  
+- Logged as ERROR  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass ☐ Fail
 
 **Screenshots:** 
 ![Restore Non-Existent ID](screenshots/Restore_Non_ID.png)
@@ -525,19 +537,17 @@ Maria Quinteiro, 124996
 **Objective:** Verify filenames with spaces handled properly.
 
 **Steps:**  
-1. Create a file named "file with spaces.txt".
-2. Run `./recycle_bin.sh delete "file with spaces.txt"`.
-3. Restore it using its ID.
+1. Create: `"file with spaces.txt"`
+2. Delete it.
 
 **Expected Result:**  
 - File is created and deleted successfully without any errors.  
 
 **Actual Result:**  
-- Script successfully handled the filename with spaces.
-- File was deleted, listed, and restored without syntax errors.
-- Metadata stored the full name enclosed in quotes to preserve spacing.
+- File handled correctly.  
+- No errors displayed or logged. 
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass ☐ Fail
 
 **Screenshots:**
  ![Handle Filenames with Spaces](screenshots/File_Spaces.png)
@@ -560,7 +570,7 @@ Maria Quinteiro, 124996
 - Works as expected  
 - Metadata recorded correctly  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass ☐ Fail
 
 **Screenshots:** 
 ![Special Characters](screenshots/special_caracters.png) 
@@ -576,16 +586,14 @@ Maria Quinteiro, 124996
 2. Run: `./recycle_bin.sh delete <longfilename>`  
 
 **Expected Result:**  
-- File is moved successfully.
-- Metadata entry created without truncation.
-- No crash or filesystem errors.
+- File moved successfully  
+- Metadata truncated only internally  
 
 **Actual Result:**  
-- Script accepted the long filename without failure.
-- File stored correctly inside recycle bin, with internal truncation applied for metadata readability.
-- Log confirmed the operation, noting the adjusted internal name length.
+- File handled correctly  
+- No crash  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass  FAIL
 
 **Screenshots:** 
 ![Handle Long Filenames](screenshots/VeryLong.png) 
@@ -597,19 +605,17 @@ Maria Quinteiro, 124996
 **Objective:** Ensure large file movement works correctly.  
 
 **Steps:**  
-1. Create a file larger than 100MB (e.g., dd if=/dev/zero of=largefile.bin bs=1M count=120).
-2. Run `./recycle_bin.sh delete largefile.bin`.
+1. Create file >100MB  
+2. Run delete command  
 
 **Expected Result:**  
 - File moved successfully  
 - Progress shown if applicable  
 
 **Actual Result:**  
-- File moved successfully to the recycle bin.
-- Operation took longer but completed without interruption.
-- Metadata and log files accurately recorded file size and timestamp.
+- File deleted and metadata saved  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass ☐ Fail
 
 **Screenshots:** 
 ![Very Large Files](screenshots/delete_big_files.png) 
@@ -630,7 +636,7 @@ Maria Quinteiro, 124996
 **Actual Result:**  
 - Only link moved, not target, correct behavior confirmed  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass ☐ Fail
 
 **Screenshots:** 
 ![Symbolic Links](screenshots/symbolic_links.png) 
@@ -646,15 +652,12 @@ Maria Quinteiro, 124996
 2. Run delete, list, restore  
 
 **Expected Result:**  
-- Hidden files deleted and restored like normal files.
-- Metadata correctly identifies hidden files. 
+- Hidden file fully supported  
 
 **Actual Result:**  
-- Hidden file deleted, listed, and restored successfully.
-- Metadata stored the name with leading dot intact.
-- No display issues in list --detailed output.
+- Hidden file fully supported  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass ☐ Fail
 
 **Screenshots:** 
 ![Hidden File](screenshots/hidden_file.png) 
@@ -666,19 +669,16 @@ Maria Quinteiro, 124996
 **Objective:** Delete files from different absolute paths.  
 
 **Steps:**  
-1. Create `/tmp/a.txt` and `~/b.txt`  
-2. Run: `./recycle_bin.sh delete /tmp/a.txt ~/b.txt`  
+   1. Create `/tmp/a.txt` and `~/b.txt`  
+   2. Run: `./recycle_bin.sh delete /tmp/a.txt ~/b.txt`  
 
 **Expected Result:**  
-- Both files are moved to the recycle bin.
-- Metadata records full original paths. 
+- Both moved and metadata includes full paths  
 
 **Actual Result:**  
-- Both files deleted successfully from their respective directories.
-- Metadata entries include full absolute paths.
-- Operation logged as a multi-source deletion.
+- Successful  
 
-**Status:** ☑ Pass ☐ Fail  
+ **Status:** ☑ Pass  
 
 **Screenshots:** 
 ![Delete Files from Different Directories](screenshots/Files_Dif_Dir.png) 
@@ -690,21 +690,19 @@ Maria Quinteiro, 124996
 **Objective:** Test restoring files when destination is read-only.  
 
 **Steps:**  
-1. Create a directory and set it to read-only (`chmod 555 readonly/`).
-2. Delete a file inside that directory.
-3. Run `./recycle_bin.sh restore <ID>`. 
+1. Make directory read-only  
+2. Delete file inside it  
+3. Try to restore  
 
 **Expected Result:**  
-- Script detects permission issue and aborts restoration with an error.
+- Error “Permission denied”  
 
 **Actual Result:**  
-- Restoration failed gracefully with “Permission denied” message in red.
-- No data loss occurred; file remained in recycle bin.
-- Log recorded permission issue with timestamp and user info.
+- Red error message displayed  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass  
 
-**Screenshots:** 
+**Screenshots:** [If applicable]  
 ![Read Only](screenshots/ReadOnly.png) 
 
 ---
@@ -714,7 +712,7 @@ Maria Quinteiro, 124996
 **Objective:** Ensure unknown commands produce error messages
 
 **Steps:**
-1. Run: `./recycle_bin.sh unknown`
+Run: `./recycle_bin.sh unknown`
 
 **Expected Result:**
 - Error about unknown command
@@ -743,13 +741,11 @@ Maria Quinteiro, 124996
 - Error “Missing parameters” printed  
 
 **Actual Result:**  
-- Script printed “ERROR: Missing parameters for delete”.
-- Operation aborted without modifying any files.
-- Exit code returned 1. 
+- Proper error shown  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass  
 
-**Screenshots:** 
+**Screenshots:** [If applicable]  
 ![Missing Parameters](screenshots/Missing_P.png) 
 
 ---
@@ -769,7 +765,7 @@ Maria Quinteiro, 124996
 **Actual Result:**  
 - Script resets metadata file  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass  
 
 **Screenshots:**  
 ![Corrupted Metadata](screenshots/Corrupted.png) 
@@ -781,122 +777,81 @@ Maria Quinteiro, 124996
 **Objective:** Verify that deletion stops if insufficient space in recycle bin.  
 
 **Steps:**  
-1. Simulate low disk space using a small virtual partition or quota.
-2. Attempt to delete a large file with `./recycle_bin.sh` delete largefile.bin
+1. Simulate full disk  
+2. Run delete  
 
 **Expected Result:**  
-- Operation is aborted gracefully when disk space is insufficient.
-- File remains in its original location.
-- Error message clearly states the cause.
+- Red error message with needed/available MB  
 
 **Actual Result:**  
-- Script detected the “No space left on device” error from the OS.
-- File was not moved; original remained intact.
-- Log recorded failure under “Storage error” with disk usage percentage.
-- Exit code returned 1.
+- “Insufficient disk space” printed  
 
-**Status:** ☑ Pass ☐ Fail   
+**Status:** ☑ Pass  
 
 **Screenshots:** [If applicable]  
 
 ---
 
-### Test Case 31: Insufficient Disk Space During Restore 
+### Test Case 31: Permission Denied Errors  
 
-**Objective:** Ensure that restoration stops safely when disk space is insufficient.
+**Objective:** Test generic permission-denied scenarios.  
 
 **Steps:**  
-1. Fill the target disk close to capacity.
-2. Attempt to restore a large file using ./recycle_bin.sh restore <ID>.
+1. Run script without permission to read source or write bin  
 
 **Expected Result:**  
-- Restoration fails with clear error message.
-- File remains in recycle bin. 
+- Red error message logged  
 
 **Actual Result:**  
-- Script began restoration, detected insufficient space mid-operation, and halted.
-- Partial restoration file automatically removed.
-- Metadata entry preserved.
-- Log entry created: “Restore aborted — insufficient disk space.”
+- Red error message logged  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass  
 
 **Screenshots:** 
-
+![Protected File](screenshots/protected.png) 
 
 ---
 
-### Test Case 32: Permission Denied on Recycle Bin Directory  
+### Test Case 32: Attempting to Delete Recycle Bin Itself  {{{NAO TA ACABADOO!!!!!!!!!!! ]]]]
 
-**Objective:** Test script behavior when the recycle bin directory itself lacks write permissions.
-
-**Steps:**  
-1. Change recycle bin permissions: chmod 400 ~/.recycle_bin.
-2. Try deleting a file with ./recycle_bin.sh delete file.txt.
-
-**Expected Result:**  
-- Operation fails cleanly with an explicit permission error.
-
-**Actual Result:**  
-- Script printed: “ERROR: Cannot write to recycle bin directory.”
-- No files were moved or lost.
-- Log entry documented the failure and suggested checking directory permissions.
-- Exit code returned 1.
-
-**Status:** ☑ Pass ☐ Fail  
-
-**Screenshots:** 
-
----
-
-### Test Case 33: Attempting to Delete Recycle Bin Itself  {{{NAO TA ACABADOO!!!!!!!!!!! ]]]]
-
-**Objective:** Ensure that the script prevents deletion of its own recycle bin directory.
+**Objective:** Prevent self-deletion of recycle bin.  
 
 **Steps:**  
 1. Run: `./recycle_bin.sh delete ~/.recycle_bin`  
 
 **Expected Result:**  
-- Operation rejected immediately with safety warning.
+- Error “Cannot delete recycle bin itself”  
 
 **Actual Result:**  
-- Script recognized the target path as protected.
-- Displayed red warning: “Operation not allowed — cannot delete recycle bin directory.”
-- No changes made to files or metadata.
-- Exit code returned 1.
+- Red error message printed  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass  
 
 **Screenshots:** [If applicable]  
 
 ---
 
-### Test Case 34: Concurrent Operations (Run Two Instances)  
+### Test Case 33: Concurrent Operations (Run Two Instances)  
 
-**Objective:** Verify that concurrent deletion processes handle locking and metadata consistency correctly. 
+**Objective:** Ensure concurrent script execution doesn’t corrupt metadata.  
 
 **Steps:**  
-1. In two separate terminals, delete different files at the same time.
-2. Monitor for errors or metadata corruption. 
+1. Run two deletions simultaneously  
 
 **Expected Result:**  
-- Each process completes independently without race conditions.
-- Metadata and logs remain consistent.  
+- Metadata remains consistent  
 
 **Actual Result:**  
-- Both deletions executed concurrently without conflict.
-- Script employed a temporary file lock (.lock file) during metadata writes.
-- Lock was correctly released after each operation.
-- No lost or duplicate metadata entries detected. 
+- Both succeed independently  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass  
 
 **Screenshots:** 
-
+![Concurrent Operations](screenshots/Concurrent.png) 
 
 ---
 
-### Test Case 35: Delete 100+ Files  
+### Test Case 34: Delete 100+ Files  
 
 **Objective:** Test performance with large batch deletion.  
 
@@ -905,17 +860,12 @@ Maria Quinteiro, 124996
 2. Run delete  
 
 **Expected Result:**  
-- All files deleted successfully.
-- Operation completes within acceptable time (<1 minute on SSD).
-- No performance degradation or data inconsistency.
+- All files deleted efficiently  
 
 **Actual Result:**  
-- Script processed files in batches using efficient iteration.
-- Operation completed in ~40 seconds on SSD.
-- CPU and memory usage remained stable.
-- Metadata file updated with 1000 new entries correctly.
+- Script completed within seconds  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass  
 
 **Screenshots:** 
 ![Deliting 100 files](screenshots/100files.png)  
@@ -923,7 +873,7 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 36: List Recycle Bin with 100+ Items  
+### Test Case 35: List Recycle Bin with 100+ Items  
 
 **Objective:** Verify listing performance.  
 
@@ -932,23 +882,19 @@ Maria Quinteiro, 124996
 2. Run: `./recycle_bin.sh list --detailed`  
 
 **Expected Result:**  
-- Both commands complete quickly (<2 seconds).
-- Output remains formatted and readable.
+- List formatted and complete  
 
 **Actual Result:**  
-- Normal list completed in under 1 second.
-- Detailed mode completed in ~1.7 seconds with smooth scrolling output.
-- Table formatting remained consistent, no truncation or misalignment.
-- Log recorded successful execution with total item count.
+- Output displayed correctly  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass  
 
 **Screenshots:** 
 ![Listing +100 files](screenshots/list_100.png)  
 
 ---
 
-### Test Case 37: Search in Large Metadata File  
+### Test Case 36: Search in Large Metadata File  
 
 **Objective:** Confirm that searching remains efficient with large metadata.  
 
@@ -964,14 +910,14 @@ Maria Quinteiro, 124996
 - Search completes quickly  
 - Correct results  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass  
 
 **Screenshots:** 
 ![Search in Large Metadata File](screenshots/search.png)  
 
 ---
 
-### Test Case 38: Restore from bin with many items
+### Test Case 37: Restore from bin with many items
 
 **Objective:** Verify that multiple files can be restored from a recycle bin containing many items, and that metadata is correctly updated. 
 
@@ -991,7 +937,7 @@ Maria Quinteiro, 124996
 - Search completes quickly  
 - Correct results  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ☑ Pass  
 
 **Screenshots:** 
 ![Restore in big metadata](screenshots/restore.png)  
@@ -999,154 +945,207 @@ Maria Quinteiro, 124996
 
 ---
 
-### Test Case 38: Configuration File Loading
+### Test Case 38: View Recycle Bin Statistics 
 
-**Objective:** Verify that the script correctly reads configuration values from the ~/.recycle_bin/config file.
+**Objective:** Ensure `stats` command summarizes recycle bin contents accurately.
 
 **Steps:**
-1. Open the config file and modify default options (e.g., change default delete confirmation setting).
-2. Run any command (e.g., `./recycle_bin.sh delete test.txt`).
-3. Observe behavior against modified configuration.
+1. Delete three files of different sizes.
+2. Run `./recycle_bin.sh stats`.
+3. Observe output summary.
 
-**Expected Result:**
-- Script should load updated configuration values on startup.
-- Behavior should reflect new settings (e.g., skip confirmation prompts if disabled).
+**Expected Result:**  
+Output shows total items, total size, oldest/newest deletion date, and space usage %.
 
-**Actual Result:**
-- Config values were parsed successfully during script initialization.
-- Confirmation prompts were bypassed as per updated configuration.
-- Config file validation confirmed — invalid lines ignored with warning.
-- Log entry: “Configuration loaded successfully from ~/.recycle_bin/config.”
+**Actual Result:**  
+Accurate totals shown, verified against metadata.  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ✅ Pass  
 
-**Screenshots:** 
-
+**Screenshot:** ![Stats](screenshots/stats_1.png)
 
 ---
 
-### Test Case 39: Configuration File Missing
+### Test Case 39: Compare Stats Before and After Deletion 
 
-**Objective:** Ensure the script recreates a default configuration file when it is missing.
+**Objective:** Verify dynamic update of statistics after new deletions.
 
 **Steps:**
-1. Delete `~/.recycle_bin/config`.
-2. Run any command, such as `./recycle_bin.sh list`.
+1. Run `stats` and record totals.
+2. Delete two files.
+3. Run `stats` again.
 
-**Expected Result:**
-- Script should automatically detect the missing file and recreate it with default parameters.
+**Expected Result:**  
+Item count increases by two; total size updated.
 
-**Actual Result:**
-- Script detected missing config file and printed: “Configuration file not found. Recreating with defaults.”
-- A new file was generated with standard options (confirm_delete=true, log_level=info).
-- Operation continued normally without interruption.
+**Actual Result:**  
+Values updated correctly.  
 
-**Status:** ☑ Pass ☐ Fail   
+**Status:** ✅ Pass  
 
-**Screenshots:** 
+**Screenshot:** ![StatsCompare](screenshots/stats_2.png)
 
 ---
 
-### Test Case 40: Logging Verification
+### Test Case 40: Auto Cleanup Trigger 
 
-**Objective:** Confirm that all operations generate correct and timestamped entries in recyclebin.log.
+**Objective:** Confirm automatic cleanup triggers when exceeding time limit.
 
 **Steps:**
-1. Perform several actions: delete, restore, empty.
-2. Inspect `~/.recycle_bin/recyclebin.log`.
+1. Modify `config` to set retention to 1 day.
+2. Manually edit metadata entries older than 1 day.
+3. Run any command.
 
-**Expected Result:**
-- Log should contain timestamp, action type, target filename, and status (SUCCESS/ERROR).
+**Expected Result:**  
+Old entries purged automatically.
 
-**Actual Result:**
-- Log entries recorded in ISO 8601 format with precise timestamps.
-- Each command generated one structured log line:
-   ```bash
-   [2025-10-30T22:40:12] DELETE: 'test.txt' → SUCCESS
-   [2025-10-30T22:41:20] RESTORE: ID=0023 → SUCCESS
-   ```
-- No malformed or duplicate log entries observed.
+**Actual Result:**  
+Cleanup executed, log updated.  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ✅ Pass  
 
-**Screenshots:** 
+**Screenshot:** ![AutoCleanup](screenshots/cleanup_1.png)
 
 ---
 
-### Test Case 41: Localization — Non-English Filenames
+### Test Case 41: Cleanup with Retention Policy 
 
-**Objective:** Verify that filenames containing Unicode characters (e.g., accented letters, non-Latin scripts) are handled correctly.
+**Objective:** Verify manual cleanup command obeys retention policy.
 
 **Steps:**
-- Create files named coração.txt, 文件.txt, and документ.txt.
-- Delete and restore each file.
+1. Run `./recycle_bin.sh cleanup --older-than 7d`.
+2. Observe deletions.
 
-**Expected Result:**
-- All filenames are processed, displayed, and logged correctly without encoding issues.
+**Expected Result:**  
+Items older than 7 days removed; others kept.
 
-**Actual Result:**
-- Script successfully processed all filenames using UTF-8 encoding.
-- Listing output displayed proper accents and characters.
-- Metadata entries stored with full Unicode values.
-- No “invalid byte sequence” errors encountered.
+**Actual Result:**  
+Correctly filtered by date.  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ✅ Pass 
 
-**Screenshots:** 
+**Screenshot:** ![CleanupManual](screenshots/cleanup_2.png)
 
 ---
 
-### Test Case 42: Version Command
+### Test Case 42: Preview File Contents Before Restore 
 
-**Objective:** Ensure that the version command displays script version and author information accurately.
+**Objective:** Allow user to view a deleted file’s content before restoring.
 
 **Steps:**
-1. Run: `./recycle_bin.sh version`.
+1. Delete `notes.txt`.
+2. Run `./recycle_bin.sh preview <ID>`.
 
-**Expected Result:**
-- Displays script name, version number, last update date, and author information.
+**Expected Result:**  
+File content displayed (first 20 lines or truncated view).
 
-**Actual Result:**
-- Output included:
-   ```bash
-   Linux Recycle Bin Simulator v1.0.5
-   Authors: Inês Batista (124877), Maria Quinteiro (124996)
-   Last Updated: October 2025
-   ```
-- Version and authorship correctly aligned with script header.
-- Log entry added: “Displayed version information.”
+**Actual Result:**  
+Preview displayed in terminal.  
 
-**Status:** ☑ Pass ☐ Fail  
+**Status:** ✅ Pass  
 
-**Screenshots:** 
+**Screenshot:** ![PreviewText](screenshots/preview_1.png)
 
 ---
 
-### Test Case 43: Configuration Reload Without Restart
+### Test Case 43: Preview Binary or Large File 
 
-**Objective:** Test dynamic configuration reloading while the script is running (if applicable).
+**Objective:** Ensure safe handling of binary or large files in preview mode.
 
 **Steps:**
-- Keep the script running in interactive mode (if supported).
-- Modify `~/.recycle_bin/config` (e.g., toggle color output setting).
-- Execute another command within the same session.
+1. Delete large/binary file.
+2. Run `preview <ID>`.
 
-**Expected Result:**
-- Configuration reloads automatically or with minimal delay.
-- New settings applied to subsequent commands.
+**Expected Result:**  
+Shows message “Binary or large file detected – hex or size summary shown.”
 
-**Actual Result:**
-- Script detected config change via timestamp comparison.
-- Reloaded configuration without restarting the session.
-- Updated color scheme applied immediately to new output.
-- Log entry: “Configuration reloaded dynamically (no restart required).”
+**Actual Result:**  
+Safe summary displayed.  
 
-**Status:** ☑ Pass ☐ Fail   
+**Status:** ✅ Pass  
 
-**Screenshots:** 
+**Screenshot:** ![PreviewBinary](screenshots/preview_2.png)
 
 ---
 
+### Test Case 44: Purge Corrupted Metadata Entries 
 
+**Objective:** Ensure corrupted entries are detected and removed.
+
+**Steps:**
+1. Manually edit `metadata.db` (break one row).
+2. Run `./recycle_bin.sh purge_corrupted`.
+
+**Expected Result:**  
+Invalid lines removed, valid ones preserved.
+
+**Actual Result:**  
+Corruption repaired automatically.  
+
+**Status:** ✅ Pass  
+
+**Screenshot:** ![PurgeCorrupt](screenshots/purge_1.png)
+
+---
+
+### Test Case 45: Purge Missing File Entries 
+
+**Objective:** Remove entries where the physical file no longer exists.
+
+**Steps:**
+1. Delete a file directly from `files/`.
+2. Run `purge_corrupted`.
+
+**Expected Result:**  
+Metadata entry removed, warning logged.
+
+**Actual Result:**  
+Correct entry cleanup performed.  
+
+**Status:** ✅ Pass  
+
+**Screenshot:** ![PurgeMissing](screenshots/purge_2.png)
+
+---
+
+### Test Case 46: Check Storage Quota Warning 
+
+**Objective:** Ensure soft quota limit triggers warnings.
+
+**Steps:**
+1. Set quota limit in `config` to 100MB.
+2. Fill recycle bin to 90MB.
+3. Run `delete`.
+
+**Expected Result:**  
+Yellow warning printed (“Recycle Bin near quota limit”).
+
+**Actual Result:**  
+Warning appears correctly.  
+
+**Status:** ✅ Pass  
+
+**Screenshot:** ![QuotaWarn](screenshots/quota_1.png)
+
+---
+
+### Test Case 47: Enforce Hard Quota Limit 
+
+**Objective:** Prevent deletions when storage exceeds hard quota.
+
+**Steps:**
+1. Set quota to 100MB.
+2. Fill recycle bin with >100MB of files.
+3. Attempt another deletion.
+
+**Expected Result:**  
+Red error printed, deletion aborted.
+
+**Actual Result:**  
+Error displayed, action blocked.  
+
+**Status:** ✅ Pass  
+
+**Screenshot:** ![QuotaBlock](screenshots/quota_2.png)
 
 
