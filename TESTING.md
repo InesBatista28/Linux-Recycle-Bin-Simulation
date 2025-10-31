@@ -419,7 +419,6 @@ Maria Quinteiro, 124996
 
 ---
 
-
 ### Test Case 15: Delete Non-existent File  
 
 **Objective:** Ensure proper error handling for nonexistent files
@@ -539,7 +538,7 @@ Maria Quinteiro, 124996
 **Status:** ☑ Pass ☐ Fail  
 
 **Screenshots:**
- ![Handle Filenames with Spaces](screenshots/File_Spaces.png)
+![Handle Filenames with Spaces](screenshots/File_Spaces.png)
 
 ---
 
@@ -780,8 +779,8 @@ Maria Quinteiro, 124996
 **Objective:** Test script behavior when the recycle bin directory itself lacks write permissions.
 
 **Steps:**  
-1. Change recycle bin permissions: chmod 400 ~/.recycle_bin.
-2. Try deleting a file with ./recycle_bin.sh delete file.txt.
+1. Change recycle bin permissions: `chmod 400 ~/.recycle_bin`.
+2. Try deleting a file with `./recycle_bin.sh delete file.txt`.
 
 **Expected Result:**  
 - Operation fails cleanly with an explicit permission error.
@@ -1066,7 +1065,7 @@ Maria Quinteiro, 124996
    ```bash
    Linux Recycle Bin Simulator v1.0.5
    Authors: Inês Batista (124877), Maria Quinteiro (124996)
-   Last Updated: October 2025
+   Last Updated:28 October 2025    #actually the date of the last update
    ```
 - Version and authorship correctly aligned with script header.
 - Log entry added: “Displayed version information.”

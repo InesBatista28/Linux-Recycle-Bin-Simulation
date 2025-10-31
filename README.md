@@ -109,11 +109,15 @@ For detailed usage scenarios, command demonstrations, and output samples, see: [
 - GeeksforGeeks — `sed` Command in Linux/Unix (with examples)  
 - GeeksforGeeks — `tail` Command Examples (used for log reading)  
 - Baeldung — Reading and Printing Specific Lines from a File  
-- StackOverflow — Removing Prefixes/Suffixes from Strings in Bash 
+- StackOverflow — Removing Prefixes/Suffixes from Strings in Bash  
 - Baeldung — Creating a Simple Select Menu in Shell Scripts  
 - AskUbuntu — Creating Menus with `select` in Bash  
 - StackOverflow — Case-Insensitive String Comparison in Shell Scripts  
 - Tecmint — Implementing a Recycle Bin in Linux via CLI (Trash-CLI concept)  
 - Red Hat — Bash Scripting Best Practices  
-- GitHub: tonymorello/trash — Minimal Bash Recycle Bin implementation 
+- GitHub: tonymorello/trash — Minimal Bash Recycle Bin implementation  
+- StackOverflow — File locking in Bash using `.lock` files (for concurrent operations)  
+- Linuxize — Reading CSV files line by line in Bash  
+- GNU Bash Manual — Using `trap` to handle cleanup and exit conditions  
+- OpenAI ChatGPT (GPT-5) — Technical explanation, debugging for Bash script design  
 ```
